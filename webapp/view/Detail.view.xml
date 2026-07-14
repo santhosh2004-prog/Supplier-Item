@@ -1,0 +1,99 @@
+<mvc:View
+    controllerName="supplieropenitems.controller.Detail"
+    height="100%"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Page
+        id="detailPage"
+        showHeader="false"
+    >
+        <content>
+            <VBox class="detailRoot">
+                <!-- ── SLIM TOP BAR ─────────────────────────────────────────── -->
+                <HBox
+                    class="detailTopBar"
+                    alignItems="Center"
+                    justifyContent="SpaceBetween"
+                >
+                    <HBox alignItems="Center">
+                        <Button
+                            icon="sap-icon://nav-back"
+                            type="Transparent"
+                            press=".onNavBack"
+                            class="topBarBackBtn"
+                        />
+                        <VBox class="topBarVendorBox">
+                            <Text
+                                id="vendorName"
+                                text=""
+                                class="topVendorName"
+                            />
+                            <Text
+                                id="vendorMeta"
+                                text=""
+                                class="topVendorMeta"
+                            />
+                        </VBox>
+                    </HBox>
+                    <Button
+                        text="Back"
+                        type="Reject"
+                        press=".onNavBack"
+                    />
+                </HBox>
+
+                <core:HTML content="&lt;hr class='pageDivider'/&gt;" />
+
+                <!-- ── TWO TILES ─────────────────────────────────────────────── -->
+                <HBox
+                    id="tileStrip"
+                    wrap="Wrap"
+                    alignItems="Start"
+                    class="tileStrip"
+                >
+                    <GenericTile
+                        id="reTile"
+                        header="PO Invoices"
+                        subheader="Doc Type : RE"
+                        frameType="OneByOne"
+                        press=".onReTilePress"
+                        class="kpiTile kpiTileRE"
+                    >
+                        <TileContent
+                            unit="INR"
+                            footer="{reModel>/count} document(s)"
+                        >
+                            <NumericContent
+                                value="{reModel>/displayAmt}"
+                                valueColor="{reModel>/color}"
+                                withMargin="false"
+                            />
+                        </TileContent>
+                    </GenericTile>
+
+                    <GenericTile
+                        id="otherTile"
+                        header="Other Items"
+                        subheader="All Non-RE Documents"
+                        frameType="OneByOne"
+                        press=".onOtherTilePress"
+                        class="kpiTile kpiTileOther"
+                    >
+                        <TileContent
+                            unit="INR"
+                            footer="{otherModel>/count} document(s)"
+                        >
+                            <NumericContent
+                                value="{otherModel>/displayAmt}"
+                                valueColor="{otherModel>/color}"
+                                withMargin="false"
+                            />
+                        </TileContent>
+                    </GenericTile>
+                </HBox>
+            </VBox>
+        </content>
+    </Page>
+</mvc:View>

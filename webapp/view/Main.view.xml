@@ -1,0 +1,170 @@
+<mvc:View
+    controllerName="supplieropenitems.controller.Main"
+    height="100%"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:core="sap.ui.core"
+    xmlns="sap.m"
+    xmlns:f="sap.f"
+    xmlns:fb="sap.ui.comp.filterbar"
+>
+    <f:DynamicPage
+        id="dynamicPage"
+        headerExpanded="true"
+        preserveHeaderStateOnScroll="true"
+        showFooter="true"
+        fitContent="true"
+    >
+        <!-- ── TITLE ── -->
+        <!-- <f:title>
+            <f:DynamicPageTitle>
+                <f:heading>
+                    <HBox
+                        width="100%"
+                        alignItems="Center"
+                        class="titleBar"
+                        justifyContent="SpaceBetween"
+                    >
+                        <Image
+                            src="{img>/logo}"
+                            width="120px"
+                            decorative="false"
+                            class="logoImage"
+                        />
+                        <Text
+                            text="Supplier Open Items"
+                            class="titleText"
+                        >
+                            <layoutData>
+                                <FlexItemData
+                                    growFactor="1"
+                                    styleClass="titleWrapper"
+                                />
+                            </layoutData>
+                        </Text>
+                        <Button
+                            text="Reset"
+                            press=".onReset"
+                            type="Reject"
+                        />
+                    </HBox>
+                </f:heading>
+                <f:actions />
+            </f:DynamicPageTitle>
+        </f:title> -->
+        <f:title>
+            <f:DynamicPageTitle>
+                <f:heading>
+                    <Image
+                        src="{img>/logo}"
+                        width="120px"
+                        decorative="false"
+                        class="logoImage"
+                    />
+                </f:heading>
+                <f:expandedContent>
+                    <Title text="Supplier Open Items" />
+                </f:expandedContent>
+                <f:snappedContent>
+                    <Title text="Supplier Open Items" />
+                </f:snappedContent>
+                <f:snappedTitleOnMobile>
+                    <Title text="Supplier Open Items" />
+                </f:snappedTitleOnMobile>
+
+                <f:navigationActions>
+                    <Button
+                        text="Reset"
+                        press=".onReset"
+                        type="Reject"
+                    />
+                </f:navigationActions>
+            </f:DynamicPageTitle>
+        </f:title>
+
+        <!-- ── HEADER (Filter Bar) ── -->
+        <f:header>
+            <f:DynamicPageHeader>
+                <f:content>
+                    <fb:FilterBar
+                        id="filterbar"
+                        persistencyKey="SupplierOpenItemsFB"
+                        useToolbar="false"
+                        search=".onSearch"
+                        filterChange=".onFilterChange"
+                    >
+                        <fb:filterGroupItems>
+                            <!-- ── Company Code ────────────────────────────── -->
+                            <fb:FilterGroupItem
+                                name="CompanyCode"
+                                label="Company Code"
+                                groupName="Basic"
+                                visibleInFilterBar="true"
+                                mandatory="true"
+                            >
+                                <fb:control>
+                                    <Input
+                                        id="inputBukrs"
+                                        name="CompanyCode"
+                                        placeholder="Enter or select company code"
+                                        width="100%"
+                                        showValueHelp="true"
+                                        valueHelpRequest=".onCompCodeF4"
+                                        liveChange=".onFilterChange"
+                                    />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <!-- ── Supplier ────────────────────────────────── -->
+                            <fb:FilterGroupItem
+                                name="Supplier"
+                                label="Supplier"
+                                groupName="Basic"
+                                visibleInFilterBar="true"
+                            >
+                                <fb:control>
+                                    <Input
+                                        id="inputLifnr"
+                                        name="Supplier"
+                                        placeholder="Enter or select supplier"
+                                        width="100%"
+                                        showValueHelp="true"
+                                        valueHelpRequest=".onSupplierF4"
+                                        liveChange=".onFilterChange"
+                                    />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <!-- ── Key Date ────────────────────────────────── -->
+                            <fb:FilterGroupItem
+                                name="KeyDate"
+                                label="Key Date"
+                                groupName="Basic"
+                                visibleInFilterBar="true"
+                            >
+                                <fb:control>
+                                    <DatePicker
+                                        id="inputKeyDate"
+                                        name="KeyDate"
+                                        placeholder="dd.MM.yyyy"
+                                        valueFormat="yyyy-MM-dd"
+                                        displayFormat="dd.MM.yyyy"
+                                        width="100%"
+                                        change=".onFilterChange"
+                                    />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+                        </fb:filterGroupItems>
+                    </fb:FilterBar>
+                </f:content>
+            </f:DynamicPageHeader>
+        </f:header>
+
+        <!-- ── CONTENT ── -->
+        <f:content>
+            <VBox
+                id="reconContainer"
+                class="sapUiSmallMarginBeginEnd sapUiSmallMarginTop"
+            />
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>
