@@ -2,98 +2,608 @@
     controllerName="supplieropenitems.controller.Detail"
     height="100%"
     xmlns:mvc="sap.ui.core.mvc"
-    xmlns="sap.m"
     xmlns:core="sap.ui.core"
+    xmlns="sap.m"
+    xmlns:uxap="sap.uxap"
+    xmlns:viz="sap.viz.ui5.controls"
+    xmlns:viz.data="sap.viz.ui5.data"
+    xmlns:viz.feeds="sap.viz.ui5.controls.common.feeds"
 >
-    <Page
-        id="detailPage"
-        showHeader="false"
+    <uxap:ObjectPageLayout
+        id="ObjectPageLayout"
+        showTitleInHeaderContent="true"
+        alwaysShowContentHeader="false"
+        preserveHeaderStateOnScroll="false"
+        headerContentPinnable="true"
+        isChildPage="true"
+        upperCaseAnchorBar="false"
     >
-        <content>
-            <VBox class="detailRoot">
-                <!-- ── SLIM TOP BAR ─────────────────────────────────────────── -->
-                <HBox
-                    class="detailTopBar"
-                    alignItems="Center"
-                    justifyContent="SpaceBetween"
-                >
-                    <HBox alignItems="Center">
-                        <Button
-                            icon="sap-icon://nav-back"
-                            type="Transparent"
-                            press=".onNavBack"
-                            class="topBarBackBtn"
-                        />
-                        <VBox class="topBarVendorBox">
-                            <Text
-                                id="vendorName"
-                                text=""
-                                class="topVendorName"
-                            />
-                            <Text
-                                id="vendorMeta"
-                                text=""
-                                class="topVendorMeta"
-                            />
-                        </VBox>
-                    </HBox>
-                    <Button
-                        text="Back"
-                        type="Reject"
-                        press=".onNavBack"
+        <uxap:headerTitle>
+            <uxap:ObjectPageDynamicHeaderTitle>
+                <uxap:heading>
+                    <Title
+                        text="{recon>Txt50}"
+                        level="H3"
                     />
-                </HBox>
+                </uxap:heading>
+                <uxap:navigationActions>
+                    <OverflowToolbarButton
+                        type="Transparent"
+                        icon="sap-icon://full-screen"
+                        press=".handleFullScreen"
+                        id="enterFullScreenBtn"
+                        tooltip="Enter Full Screen Mode"
+                        visible="{= !${appView>/actionButtonsInfo/midColumn/fullScreen}}"
+                    />
+                    <OverflowToolbarButton
+                        type="Transparent"
+                        icon="sap-icon://exit-full-screen"
+                        press=".handleExitFullScreen"
+                        id="exitFullScreenBtn"
+                        tooltip="Exit Full Screen Mode"
+                        visible="{= ${appView>/actionButtonsInfo/midColumn/fullScreen}}"
+                    />
+                    <OverflowToolbarButton
+                        type="Transparent"
+                        icon="sap-icon://table-view"
+                        press=".handleCategoryTable"
+                        id="categoryTableBtn"
+                        tooltip="Show Category Table"
+                    />
+                    <OverflowToolbarButton
+                        type="Transparent"
+                        icon="sap-icon://decline"
+                        press=".handleClose"
+                        tooltip="Close"
+                    />
+                </uxap:navigationActions>
+            </uxap:ObjectPageDynamicHeaderTitle>
+        </uxap:headerTitle>
 
-                <core:HTML content="&lt;hr class='pageDivider'/&gt;" />
+        <uxap:headerContent />
 
-                <!-- ── TWO TILES ─────────────────────────────────────────────── -->
-                <HBox
-                    id="tileStrip"
-                    wrap="Wrap"
-                    alignItems="Start"
-                    class="tileStrip"
-                >
-                    <GenericTile
-                        id="reTile"
-                        header="PO Invoices"
-                        subheader="Doc Type : RE"
-                        frameType="OneByOne"
-                        press=".onReTilePress"
-                        class="kpiTile kpiTileRE"
-                    >
-                        <TileContent
-                            unit="INR"
-                            footer="{reModel>/count} document(s)"
-                        >
-                            <NumericContent
-                                value="{reModel>/displayAmt}"
-                                valueColor="{reModel>/color}"
-                                withMargin="false"
-                            />
-                        </TileContent>
-                    </GenericTile>
+        <uxap:sections>
+            <!-- ════════ TAB 1 : Chart ════════ -->
+            <uxap:ObjectPageSection title="Chart">
+                <uxap:subSections>
+                    <uxap:ObjectPageSubSection>
+                        <uxap:blocks>
+                            <VBox class="dashboardWrapper">
+                                <!-- ═══ Bar Chart Card ═══ -->
+                                <VBox class="dashboardCard sapUiSmallMarginTop">
+                                    <Text
+                                        text="Amount by Reconciliation Category"
+                                        class="dashboardCardTitle"
+                                    />
+                                    <VBox
+                                        renderType="Bare"
+                                        height="440px"
+                                        class="sapUiTinyMarginTop"
+                                    >
+                                        <viz:VizFrame
+                                            id="reconChart"
+                                            vizType="column"
+                                            width="100%"
+                                            height="100%"
+                                            uiConfig="{applicationSet:'fiori'}"
+                                        >
+                                            <viz:dataset>
+                                                <viz.data:FlattenedDataset
+                                                    data="{recon>/chart}"
+                                                >
+                                                    <viz.data:dimensions>
+                                                        <viz.data:DimensionDefinition
+                                                            name="Category"
+                                                            value="{ path: 'recon>category', formatter: '.wrapCategoryLabel' }"
+                                                        />
+                                                    </viz.data:dimensions>
+                                                    <viz.data:measures>
+                                                        <viz.data:MeasureDefinition
+                                                            name="Invoice Amount"
+                                                            value="{recon>invoice}"
+                                                        />
+                                                        <viz.data:MeasureDefinition
+                                                            name="Advance Amount"
+                                                            value="{recon>advance}"
+                                                        />
+                                                    </viz.data:measures>
+                                                </viz.data:FlattenedDataset>
+                                            </viz:dataset>
+                                            <viz:feeds>
+                                                <viz.feeds:FeedItem
+                                                    uid="valueAxis"
+                                                    type="Measure"
+                                                    values="Invoice Amount,Advance Amount"
+                                                />
+                                                <viz.feeds:FeedItem
+                                                    uid="categoryAxis"
+                                                    type="Dimension"
+                                                    values="Category"
+                                                />
+                                            </viz:feeds>
+                                        </viz:VizFrame>
+                                    </VBox>
+                                </VBox>
 
-                    <GenericTile
-                        id="otherTile"
-                        header="Other Items"
-                        subheader="All Non-RE Documents"
-                        frameType="OneByOne"
-                        press=".onOtherTilePress"
-                        class="kpiTile kpiTileOther"
-                    >
-                        <TileContent
-                            unit="INR"
-                            footer="{otherModel>/count} document(s)"
-                        >
-                            <NumericContent
-                                value="{otherModel>/displayAmt}"
-                                valueColor="{otherModel>/color}"
-                                withMargin="false"
-                            />
-                        </TileContent>
-                    </GenericTile>
-                </HBox>
-            </VBox>
-        </content>
-    </Page>
+                                <!-- ═══ Bottom Row: Top 5 List + Donut ═══ -->
+                                <HBox
+                                    wrap="Wrap"
+                                    class="sapUiSmallMarginTop dashboardBottomRow"
+                                >
+                                    <!-- Top 5 Categories by Net Amount -->
+                                    <VBox
+                                        class="dashboardCard dashboardCardHalf"
+                                    >
+                                        <Text
+                                            text="Top 5 Categories by Net Amount"
+                                            class="dashboardCardTitle"
+                                        />
+                                        <List
+                                            items="{recon>/top5Categories}"
+                                            mode="None"
+                                            class="top5List sapUiTinyMarginTop"
+                                        >
+                                            <CustomListItem class="top5Row">
+                                                <VBox width="100%">
+                                                    <HBox
+                                                        justifyContent="SpaceBetween"
+                                                    >
+                                                        <Text
+                                                            text="{recon>category}"
+                                                            class="top5Label"
+                                                        />
+                                                        <Text
+                                                            text="{ path: 'recon>netAmt', formatter: '.formatAmount' }"
+                                                            class="top5Value"
+                                                        />
+                                                    </HBox>
+                                                    <ProgressIndicator
+                                                        percentValue="{recon>percent}"
+                                                        displayValue=" "
+                                                        state="{recon>state}"
+                                                        class="top5Bar sapUiTinyMarginTop"
+                                                    />
+                                                </VBox>
+                                            </CustomListItem>
+                                        </List>
+                                    </VBox>
+
+                                    <!-- Net Amount Distribution (Donut) -->
+                                    <VBox
+                                        class="dashboardCard dashboardCardHalf"
+                                    >
+                                        <Text
+                                            text="Net Amount Distribution"
+                                            class="dashboardCardTitle"
+                                        />
+                                        <HBox
+                                            alignItems="Center"
+                                            class="sapUiTinyMarginTop"
+                                        >
+                                            <VBox
+                                                renderType="Bare"
+                                                height="230px"
+                                                width="55%"
+                                            >
+                                                <viz:VizFrame
+                                                    id="netDonutChart"
+                                                    vizType="donut"
+                                                    width="100%"
+                                                    height="100%"
+                                                    uiConfig="{applicationSet:'fiori'}"
+                                                >
+                                                    <viz:dataset>
+                                                        <viz.data:FlattenedDataset
+                                                            data="{recon>/donut}"
+                                                        >
+                                                            <viz.data:dimensions
+                                                            >
+                                                                <viz.data:DimensionDefinition
+                                                                    name="Category"
+                                                                    value="{recon>category}"
+                                                                />
+                                                            </viz.data:dimensions>
+                                                            <viz.data:measures>
+                                                                <viz.data:MeasureDefinition
+                                                                    name="Net Amount"
+                                                                    value="{recon>absNetAmt}"
+                                                                />
+                                                            </viz.data:measures>
+                                                        </viz.data:FlattenedDataset>
+                                                    </viz:dataset>
+                                                    <viz:feeds>
+                                                        <viz.feeds:FeedItem
+                                                            uid="size"
+                                                            type="Measure"
+                                                            values="Net Amount"
+                                                        />
+                                                        <viz.feeds:FeedItem
+                                                            uid="color"
+                                                            type="Dimension"
+                                                            values="Category"
+                                                        />
+                                                    </viz:feeds>
+                                                </viz:VizFrame>
+                                            </VBox>
+                                            <List
+                                                items="{recon>/donut}"
+                                                mode="None"
+                                                class="donutLegend sapUiSmallMarginBegin"
+                                            >
+                                                <CustomListItem
+                                                    class="donutLegendRow"
+                                                >
+                                                    <HBox alignItems="Center">
+                                                        <core:Icon
+                                                            src="sap-icon://circle-task-2"
+                                                            color="{recon>colorHex}"
+                                                            class="donutLegendDot"
+                                                        />
+                                                        <Text
+                                                            text="{recon>category}"
+                                                            class="donutLegendLabel sapUiTinyMarginBegin"
+                                                        />
+                                                        <Text
+                                                            text="{recon>percentLabel}"
+                                                            class="donutLegendPercent sapUiTinyMarginBegin"
+                                                        />
+                                                    </HBox>
+                                                </CustomListItem>
+                                            </List>
+                                        </HBox>
+                                    </VBox>
+                                </HBox>
+
+                                <!-- ═══ KPI Row ═══ -->
+                                <HBox
+                                    wrap="Wrap"
+                                    class="kpiRow"
+                                >
+                                    <VBox class="kpiCard kpiCardBlue">
+                                        <HBox alignItems="Center">
+                                            <core:Icon
+                                                src="sap-icon://receipt"
+                                                class="kpiIcon kpiIconBlue"
+                                            />
+                                            <Text
+                                                text="Invoice Amount"
+                                                class="kpiLabel sapUiTinyMarginBegin"
+                                            />
+                                        </HBox>
+                                        <Title
+                                            text="{ path: 'recon>InvAmt', formatter: '.formatAmount' }"
+                                            level="H3"
+                                            class="kpiValue sapUiTinyMarginTop"
+                                        />
+                                        <Text
+                                            text="INR"
+                                            class="kpiUnit"
+                                        />
+                                    </VBox>
+
+                                    <VBox class="kpiCard kpiCardOrange">
+                                        <HBox alignItems="Center">
+                                            <core:Icon
+                                                src="sap-icon://money-bills"
+                                                class="kpiIcon kpiIconOrange"
+                                            />
+                                            <Text
+                                                text="Advance Amount"
+                                                class="kpiLabel sapUiTinyMarginBegin"
+                                            />
+                                        </HBox>
+                                        <Title
+                                            text="{ path: 'recon>AdvAmt', formatter: '.formatAmount' }"
+                                            level="H3"
+                                            class="kpiValue sapUiTinyMarginTop"
+                                        />
+                                        <Text
+                                            text="INR"
+                                            class="kpiUnit"
+                                        />
+                                    </VBox>
+
+                                    <VBox class="kpiCard kpiCardGreen">
+                                        <HBox alignItems="Center">
+                                            <core:Icon
+                                                src="sap-icon://sum"
+                                                class="kpiIcon kpiIconGreen"
+                                            />
+                                            <Text
+                                                text="Net Amount"
+                                                class="kpiLabel sapUiTinyMarginBegin"
+                                            />
+                                        </HBox>
+                                        <Title
+                                            text="{
+                                                parts: [
+                                                    { path: 'recon>InvAmt' },
+                                                    { path: 'recon>AdvAmt' }
+                                                ],
+                                                formatter: '.formatNetAmount'
+                                            }"
+                                            level="H3"
+                                            class="kpiValue sapUiTinyMarginTop"
+                                        />
+                                        <Text
+                                            text="INR"
+                                            class="kpiUnit"
+                                        />
+                                    </VBox>
+
+                                    <VBox class="kpiCard kpiCardPurple">
+                                        <HBox alignItems="Center">
+                                            <core:Icon
+                                                src="sap-icon://group"
+                                                class="kpiIcon kpiIconPurple"
+                                            />
+                                            <Text
+                                                text="No. of Vendors"
+                                                class="kpiLabel sapUiTinyMarginBegin"
+                                            />
+                                        </HBox>
+                                        <Title
+                                            text="{= ${recon>vendors} ? ${recon>vendors}.length : 0 }"
+                                            level="H3"
+                                            class="kpiValue sapUiTinyMarginTop"
+                                        />
+                                        <Text
+                                            text="Vendors"
+                                            class="kpiUnit"
+                                        />
+                                    </VBox>
+                                </HBox>
+                            </VBox>
+                        </uxap:blocks>
+                    </uxap:ObjectPageSubSection>
+                </uxap:subSections>
+            </uxap:ObjectPageSection>
+
+            <!-- ════════ TAB 2 : Vendors ════════ -->
+            <uxap:ObjectPageSection title="Vendors">
+                <uxap:subSections>
+                    <uxap:ObjectPageSubSection>
+                        <uxap:blocks>
+                            <VBox width="100%">
+                                <BusyIndicator
+                                    visible="{recon>vendorsBusy}"
+                                    size="2rem"
+                                    class="sapUiMediumMarginTop"
+                                />
+
+                                <!-- ═══ Vendor Filter (LIFNR / Name) ═══ -->
+                                <Toolbar
+                                    visible="{recon>vendorsLoaded}"
+                                    class="vendorFilterBar sapUiTinyMarginBottom"
+                                >
+                                    <SearchField
+                                        id="vendorFilterInput"
+                                        placeholder="Filter by Vendor Code or Name"
+                                        width="18rem"
+                                        liveChange=".onVendorFilterChange"
+                                        search=".onVendorFilterChange"
+                                    />
+                                    <ToolbarSpacer />
+                                    <Text
+                                        text="{
+                                            path: 'recon>vendors',
+                                            formatter: '.formatVendorCount'
+                                        }"
+                                        class="vendorFilterCount"
+                                    />
+                                </Toolbar>
+
+                                <Table
+                                    id="vendorTable"
+                                    items="{recon>vendors}"
+                                    noDataText="No vendor records for this category."
+                                    sticky="ColumnHeaders"
+                                    visible="{recon>vendorsLoaded}"
+                                    fixedLayout="false"
+                                    popinLayout="GridSmall"
+                                >
+                                    <columns>
+                                        <Column width="8rem">
+                                            <Label
+                                                text="Vendor"
+                                                design="Bold"
+                                                class="boldHeaderLabel"
+                                            />
+                                        </Column>
+                                        <Column
+                                            width="auto"
+                                            minScreenWidth="Small"
+                                            demandPopin="true"
+                                            popinDisplay="Inline"
+                                        >
+                                            <Label
+                                                text="Name"
+                                                design="Bold"
+                                                class="boldHeaderLabel"
+                                            />
+                                        </Column>
+                                        <Column
+                                            width="10rem"
+                                            hAlign="End"
+                                        >
+                                            <Label
+                                                text="Invoice Amt"
+                                                design="Bold"
+                                                class="boldHeaderLabel"
+                                            />
+                                        </Column>
+                                        <Column
+                                            width="10rem"
+                                            hAlign="End"
+                                            minScreenWidth="Medium"
+                                            demandPopin="true"
+                                            popinDisplay="Inline"
+                                        >
+                                            <Label
+                                                text="Advance Amt"
+                                                design="Bold"
+                                                class="boldHeaderLabel"
+                                            />
+                                        </Column>
+                                        <Column
+                                            width="10rem"
+                                            hAlign="End"
+                                        >
+                                            <Label
+                                                text="Net Amt"
+                                                design="Bold"
+                                                class="boldHeaderLabel"
+                                            />
+                                        </Column>
+                                    </columns>
+                                    <items>
+                                        <ColumnListItem
+                                            type="Navigation"
+                                            press=".onVendorPress"
+                                        >
+                                            <cells>
+                                                <ObjectIdentifier
+                                                    title="{recon>LIFNR}"
+                                                    text="{recon>NAME1}"
+                                                />
+                                                <Text text="{recon>NAME1}" />
+                                                <ObjectNumber
+                                                    number="{ path: 'recon>INV_AMT', formatter: '.formatAmount' }"
+                                                />
+                                                <ObjectNumber
+                                                    number="{ path: 'recon>ADV_AMT', formatter: '.formatAmount' }"
+                                                />
+                                                <ObjectNumber
+                                                    number="{ path: 'recon>NET_AMT', formatter: '.formatAmount' }"
+                                                />
+                                            </cells>
+                                        </ColumnListItem>
+                                    </items>
+                                </Table>
+                                <Toolbar
+                                    visible="{recon>vendorsLoaded}"
+                                    class="vendorTotalsBar"
+                                >
+                                    <Label
+                                        text="Total"
+                                        design="Bold"
+                                        class="boldHeaderLabel"
+                                    />
+                                    <ToolbarSpacer />
+                                    <Label
+                                        text="Invoice:"
+                                        class="boldHeaderLabel"
+                                    />
+                                    <ObjectNumber
+                                        number="{ path: 'recon>vendorTotals/InvAmt', formatter: '.formatAmount' }"
+                                        emphasized="true"
+                                    />
+                                    <Label
+                                        text="Advance:"
+                                        class="boldHeaderLabel sapUiSmallMarginBegin"
+                                    />
+                                    <ObjectNumber
+                                        number="{ path: 'recon>vendorTotals/AdvAmt', formatter: '.formatAmount' }"
+                                        emphasized="true"
+                                    />
+                                    <Label
+                                        text="Net:"
+                                        class="boldHeaderLabel sapUiSmallMarginBegin"
+                                    />
+                                    <ObjectNumber
+                                        number="{ path: 'recon>vendorTotals/NetAmt', formatter: '.formatAmount' }"
+                                        emphasized="true"
+                                    />
+                                </Toolbar>
+                            </VBox>
+                        </uxap:blocks>
+                    </uxap:ObjectPageSubSection>
+                </uxap:subSections>
+            </uxap:ObjectPageSection>
+
+            <!-- ════════ TAB 3 : Open Items (Two summary tiles: RE / Non-RE) ════════ -->
+            <uxap:ObjectPageSection
+                title="Open Items"
+                id="openItemsSection"
+                visible="{recon>/openItemsTabVisible}"
+            >
+                <uxap:subSections>
+                    <uxap:ObjectPageSubSection>
+                        <uxap:blocks>
+                            <VBox width="100%">
+                                <BusyIndicator
+                                    visible="{recon>/openItemsBusy}"
+                                    size="2rem"
+                                    class="sapUiMediumMarginTop"
+                                />
+
+                                <HBox
+                                    wrap="Wrap"
+                                    visible="{= !${recon>/openItemsBusy} }"
+                                >
+                                    <!-- ═══ RE Summary Tile ═══ -->
+                                    <GenericTile
+                                        id="reSummaryTile"
+                                        width="13rem"
+                                        height="8rem"
+                                        header="RE Documents"
+                                        subheader="Type: RE"
+                                        frameType="TwoByOne"
+                                        press=".onSummaryTilePress"
+                                        class="sapUiTinyMarginEnd sapUiTinyMarginBottom"
+                                    >
+                                        <customData>
+                                            <core:CustomData
+                                                key="docType"
+                                                value="RE"
+                                            />
+                                        </customData>
+                                        <TileContent
+                                            unit="Docs"
+                                            footer="{ path: 'recon>/reNetTotal', formatter: '.formatSummaryFooter' }"
+                                        >
+                                            <Title
+                                                text="{recon>/reCount}"
+                                                level="H3"
+                                                class="sapUiTinyMarginTop"
+                                            />
+                                        </TileContent>
+                                    </GenericTile>
+
+                                    <!-- ═══ Non-RE Summary Tile ═══ -->
+                                    <GenericTile
+                                        id="nonReSummaryTile"
+                                        width="13rem"
+                                        height="8rem"
+                                        header="Non-RE Documents"
+                                        subheader="Type: Non-RE"
+                                        frameType="TwoByOne"
+                                        press=".onSummaryTilePress"
+                                        class="sapUiTinyMarginEnd sapUiTinyMarginBottom"
+                                    >
+                                        <customData>
+                                            <core:CustomData
+                                                key="docType"
+                                                value="NONRE"
+                                            />
+                                        </customData>
+                                        <TileContent
+                                            unit="Docs"
+                                            footer="{ path: 'recon>/nonReNetTotal', formatter: '.formatSummaryFooter' }"
+                                        >
+                                            <Title
+                                                text="{recon>/nonReCount}"
+                                                level="H3"
+                                                class="sapUiTinyMarginTop"
+                                            />
+                                        </TileContent>
+                                    </GenericTile>
+                                </HBox>
+                            </VBox>
+                        </uxap:blocks>
+                    </uxap:ObjectPageSubSection>
+                </uxap:subSections>
+            </uxap:ObjectPageSection>
+        </uxap:sections>
+    </uxap:ObjectPageLayout>
 </mvc:View>

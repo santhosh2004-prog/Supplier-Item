@@ -46,10 +46,13 @@
   "sap.ui5": {
     "flexEnabled": true,
     "dependencies": {
-      "minUI5Version": "1.108.22",
+      "minUI5Version": "1.108.9",
       "libs": {
+        "sap.ui.core": {},
         "sap.m": {},
-        "sap.ui.core": {}
+        "sap.f": {},
+        "sap.ui.table": {},
+        "sap.viz": {}
       }
     },
     "contentDensities": {
@@ -88,42 +91,18 @@
       },
       "routes": [
         {
-          "name": "RouteMain",
+          "name": "Routemain",
           "pattern": ":?query:",
-          "target": ["TargetMain"]
-        },
-        {
-          "name": "RouteDetail",
-          "pattern": "detail/{lifnr}/{akont}/{name}/{bukrs}/{budat}/{invAmt}/{advAmt}/{netAmt}",
-          "target": ["TargetDetail"]
-        },
-        {
-          "name": "RouteTable",
-          "pattern": "table/{tileType}/{lifnr}/{akont}/{name}/{bukrs}/{budat}/{invAmt}/{advAmt}/{netAmt}",
-          "target": ["TargetTable"]
+          "target": ["Targetmain"]
         }
       ],
       "targets": {
-        "TargetMain": {
+        "Targetmain": {
           "viewType": "XML",
           "transition": "slide",
           "clearControlAggregation": false,
-          "viewId": "Main",
-          "viewName": "Main"
-        },
-        "TargetDetail": {
-          "viewType": "XML",
-          "transition": "slide",
-          "clearControlAggregation": false,
-          "viewId": "Detail",
-          "viewName": "Detail"
-        },
-        "TargetTable": {
-          "viewType": "XML",
-          "transition": "slide",
-          "clearControlAggregation": false,
-          "viewId": "Table",
-          "viewName": "Table"
+          "viewId": "main",
+          "viewName": "main"
         }
       }
     },

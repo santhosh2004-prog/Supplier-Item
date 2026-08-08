@@ -32,7 +32,7 @@ server:
         backend:
           - path: /sap
             url: http://emsquadev.everestspices.in:8000
-            client: '120'
+            client: "120"
     - name: sap-fe-mockserver
       beforeMiddleware: csp
       configuration:

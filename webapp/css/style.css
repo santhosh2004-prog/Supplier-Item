@@ -1,598 +1,2161 @@
-/* ══════════════════════════════════════════════════════════════════
-   ROOT VARIABLES
-══════════════════════════════════════════════════════════════════ */
-:root {
-  --col-toggle:      2.5rem;
-  --col-vendor-id:   8rem;
-  --col-vendor-name: 18rem;
-  --col-amt:         13rem;   /* used as min-width now, not fixed width */
-  --row-pad-v:       9px;
-  --row-pad-h:       12px;
-  --col-gap:         2rem;
-
-  /* Minimum total row widths — below this, tables scroll horizontally instead of squeezing columns */
-  --recon-row-min-width:  60rem;
-  --vendor-row-min-width: 70rem;
-  --items-row-min-width:  75rem;
-
-  /* ── Level 1 (Recon) palette ── */
-  --l1-header-bg:     #dbeafe;   /* blue-100  */
-  --l1-header-border: #93c5fd;   /* blue-300  */
-  --l1-row-bg:        #f0f7ff;   /* blue-50   */
-  --l1-row-hover:     #dbeafe;   /* blue-100  */
-  --l1-header-text:   #1e40af;   /* blue-800  */
-  --l1-amt-text:      #1d4ed8;   /* blue-700  */
-
-  /* ── Level 2 (Vendor) palette ── */
-  --l2-header-bg:     #d1fae5;   /* emerald-100 */
-  --l2-header-border: #6ee7b7;   /* emerald-300 */
-  --l2-row-bg:        #f0fdf4;   /* green-50    */
-  --l2-row-hover:     #d1fae5;   /* emerald-100 */
-  --l2-header-text:   #065f46;   /* emerald-800 */
-  --l2-amt-text:      #047857;   /* emerald-700 */
-
-  /* ── Level 3 (Open Items) palette ── */
-  --l3-header-bg:     #fef3c7;   /* amber-100  */
-  --l3-header-border: #fcd34d;   /* amber-300  */
-  --l3-row-bg:        #fffbeb;   /* amber-50   */
-  --l3-row-hover:     #fef3c7;   /* amber-100  */
-  --l3-header-text:   #92400e;   /* amber-800  */
-  --l3-amt-text:      #b45309;   /* amber-700  */
+/* ═══════════════ TOOL HEADER (sap.tnt.ToolPage) ═══════════════ */
+.toolHeaderIcon {
+    color: #fff;
+    font-size: 1.3rem;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   OUTER WRAPPER  –  Level 1 horizontal scroll container
-══════════════════════════════════════════════════════════════════ */
-.outerWrapper {
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  overflow-x: auto;      /* CHANGED — was 'hidden'; now scrolls horizontally */
-  overflow-y: visible;
-  width: 100%;
-  box-sizing: border-box;
+.toolHeaderTitle {
+    color: #fff;
+    font-weight: 600;
+    font-size: 1.05rem;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   SHARED COLUMN WIDTHS  (structure only — no color here)
-══════════════════════════════════════════════════════════════════ */
-.colToggle     { width: var(--col-toggle); min-width: var(--col-toggle); flex-shrink: 0; }
-
-/* Category : Invoice Amount : Advance Amount = 2 : 1 : 1 */
-.colReconAcct  {
-  flex: 2 1 0;
-  min-width: 20rem;   /* CHANGED — was 0; now holds a real floor so row can't collapse below it */
+.avatarSize {
+    background-color: #5b738b;
+    color: #fff;
 }
 
-.colVendorId   { width: var(--col-vendor-id);   min-width: var(--col-vendor-id);   flex-shrink: 0; }
-.colVendorName { width: var(--col-vendor-name); min-width: var(--col-vendor-name); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.colAmt {
-  flex: 1 1 0;
-  min-width: var(--col-amt);   /* CHANGED — was 0; now holds a real floor so row can't collapse below it */
-  text-align: right;
-  justify-content: flex-end;
+/* The filter bar now lives inside the Panel's headerToolbar, stacked above
+   the Chart/Vendors/Vendor history tabs (see main.view.xml). A plain
+   sap.m.Toolbar is fixed-height by default — let it grow to fit both rows. */
+.dashboardHeaderToolbar {
+    height: auto !important;
+    padding: 0.15rem 0.6rem;
+    min-height: 0 !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   SHARED HEADER LABEL STYLE
-══════════════════════════════════════════════════════════════════ */
-.colHeader {
-  font-weight: 700;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
+.dashboardHeaderToolbar .sapMTBContent {
+    height: auto;
+    align-items: stretch;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   LEVEL 1 — RECON  (blue)
-══════════════════════════════════════════════════════════════════ */
-.tableHeaderRow {
-  display: flex;
-  align-items: center;
-  gap: var(--col-gap);
-  background: var(--l1-header-bg);
-  padding: var(--row-pad-v) var(--row-pad-h);
-  border-bottom: 2px solid var(--l1-header-border);
-  width: 100%;
-  min-width: var(--recon-row-min-width);   /* NEW — forces scroll instead of squeeze */
-  box-sizing: border-box;
+/* ═══════════════ FILTER BAR : single row, compact controls to keep the
+   whole bar as short as possible ═══════════════ */
+.customFilterBar {
+    gap: 0.5rem;
+    padding: 0;
+    width: 100%;
 }
 
-.tableHeaderRow .colHeader {
-  color: var(--l1-header-text);
+.filterField {
+    min-width: 9.5rem;
+    flex: 1 1 0;
+    gap: 0;
 }
 
-.reconDataBlock {
-  border-bottom: 1px solid #e5e7eb;
-  min-width: var(--recon-row-min-width);   /* NEW — keeps the block as wide as its rows */
-}
-.reconDataBlock:last-child {
-  border-bottom: none;
-}
-
-.tableDataRow {
-  display: flex;
-  align-items: center;
-  gap: var(--col-gap);
-  padding: var(--row-pad-v) var(--row-pad-h);
-  background: var(--l1-row-bg);
-  width: 100%;
-  min-width: var(--recon-row-min-width);   /* NEW — forces scroll instead of squeeze */
-  box-sizing: border-box;
-  transition: background 0.12s;
-}
-.tableDataRow:hover {
-  background: var(--l1-row-hover);
+/* Company Code is always a short numeric code — give it a smaller,
+   non-growing share of the row so Supplier (which now displays
+   "code - Name" once resolved) has the extra width to read clearly. */
+.filterFieldNarrow {
+    min-width: 6rem;
+    max-width: 7.5rem;
+    flex: 0 1 6rem;
 }
 
-/* L1 amount text */
-.tableDataRow .amtValue {
-  color: var(--l1-amt-text);
+.filterField .sapMInputBaseInner,
+.filterField .sapMInputBase,
+.filterField .sapMDatePicker {
+    width: 100%;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   LEVEL 2 — VENDOR  (emerald / green)
-══════════════════════════════════════════════════════════════════ */
-.vendorSection {
-  border-top: 1px solid #e5e7eb;
-  background: var(--l2-row-bg);
-  padding-left: var(--col-toggle);
-  overflow-x: auto;      /* NEW — Level 2 scrolls independently */
-  overflow-y: visible;
+.filterField .sapMLabel {
+    color: #1a2b47;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.05rem;
 }
 
-.vendorHeaderRow {
-  display: flex;
-  align-items: center;
-  gap: var(--col-gap);
-  background: var(--l2-header-bg);
-  padding: 7px var(--row-pad-h);
-  border-bottom: 1px solid var(--l2-header-border);
-  width: 100%;
-  min-width: var(--vendor-row-min-width);   /* NEW */
-  box-sizing: border-box;
+.filterGoBtn {
+    min-width: 3.25rem;
+    margin-left: 0.4rem;
+    align-self: flex-end;
 }
 
-.vendorHeaderRow .colHeader {
-  color: var(--l2-header-text);
-}
-
-.vendorDataBlock {
-  border-bottom: 1px solid #d1fae5;
-  min-width: var(--vendor-row-min-width);   /* NEW */
-}
-.vendorDataBlock:last-child {
-  border-bottom: none;
-}
-
-.vendorDataRow {
-  display: flex;
-  align-items: center;
-  gap: var(--col-gap);
-  padding: var(--row-pad-v) var(--row-pad-h);
-  background: var(--l2-row-bg);
-  width: 100%;
-  min-width: var(--vendor-row-min-width);   /* NEW */
-  box-sizing: border-box;
-  transition: background 0.12s;
-}
-.vendorDataRow:hover {
-  background: var(--l2-row-hover);
-}
-
-/* L2 amount text */
-.vendorDataRow .amtValue {
-  color: var(--l2-amt-text);
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   LEVEL 3 — OPEN ITEMS  (amber / yellow)
-══════════════════════════════════════════════════════════════════ */
-.openItemsSection {
-  border-top: 1px solid #e5e7eb;
-  padding-left: calc(var(--col-toggle) * 2);
-  background: var(--l3-row-bg);
-  overflow-x: auto;      /* NEW — Level 3 scrolls independently */
-  overflow-y: visible;
-}
-
-.openItemsTable {
-  width: 100%;
-  min-width: var(--items-row-min-width);   /* NEW — forces the sap.m.Table to overflow its section, triggering the scrollbar above */
-  border-top: none;
-}
-
-/* Header cells */
-.openItemsTable .sapMListTblHeaderCell {
-  background: var(--l3-header-bg);
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--l3-header-text);
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--l3-header-border);
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* Data cells */
-.openItemsTable .sapMListTblCell {
-  font-size: 0.8rem;
-  padding: 6px 10px;
-  color: #1d2939;
-  background: var(--l3-row-bg);
-  white-space: nowrap;   /* NEW — prevents cell text from wrapping and defeating the scroll */
-}
-
-/* Right-align amount columns */
-.openItemsTable .sapMListTblCell:nth-child(7),
-.openItemsTable .sapMListTblCell:nth-child(8),
-.openItemsTable .sapMListTblCell:nth-child(9) {
-  text-align: right;
-  color: var(--l3-amt-text);
-  font-weight: 600;
-}
-.openItemsTable .sapMListTblHeaderCell:nth-child(7),
-.openItemsTable .sapMListTblHeaderCell:nth-child(8),
-.openItemsTable .sapMListTblHeaderCell:nth-child(9) {
-  text-align: right;
-}
-
-/* Alternating row tint */
-.openItemsTable .sapMLIB:nth-child(even) .sapMListTblCell {
-  background: var(--l3-header-bg);
-}
-.openItemsTable .sapMLIB:hover .sapMListTblCell {
-  background: var(--l3-row-hover) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   AMOUNTS — base (overridden per-level above)
-══════════════════════════════════════════════════════════════════ */
-.amtValue {
-  font-weight: 600;
-  color: #0a6ed1;       /* fallback — overridden by L1/L2 rules above */
-  display: block;
-  width: 100%;
-  text-align: right;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   TOGGLE BUTTONS
-══════════════════════════════════════════════════════════════════ */
-.toggleBtn.sapMBtn {
-  min-width: 2rem;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-/* L1 toggle — blue */
-.tableDataRow .toggleBtn .sapMBtnIcon  { color: var(--l1-amt-text); font-size: 0.85rem; }
-
-/* L2 toggle — green */
-.vendorDataRow .toggleBtn .sapMBtnIcon { color: var(--l2-amt-text); font-size: 0.85rem; }
-
-/* ══════════════════════════════════════════════════════════════════
-   SAP FIORI OVERRIDES — strip default Text padding/margin
-══════════════════════════════════════════════════════════════════ */
-.tableHeaderRow  .sapMText,
-.tableDataRow    .sapMText,
-.vendorHeaderRow .sapMText,
-.vendorDataRow   .sapMText {
-  margin: 0;
-  padding: 0;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.colVendorName .sapMText {
-  display: block;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   FILTER BAR
-══════════════════════════════════════════════════════════════════ */
-.filterLabel.sapMLabel {
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  color: #344054 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 2px;
-}
-
-.filterLabel .sapMLabelTextWrapper {
-  color: #344054 !important;
-  font-size: 0.75rem !important;
-}
-
-.filterHint {
-  font-size: 0.72rem;
-  color: #667085;
-  margin-top: 2px;
-  display: block;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   PAGE TITLE — centered with logo pinned left
-══════════════════════════════════════════════════════════════════ */
-
-/* The DynamicPageTitle heading stretches full width */
-.sapFDynamicPageTitleMainHeading {
-  width: 100%;
-}
-
-/* Outer HBox fills the heading area */
-.sapFDynamicPageTitleMainHeading .sapMHBox {
-  width: 100%;
-}
-
-/* Center title box takes all remaining space */
-.titleCenter {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
-
-/* Title text styling — Everest red to match logo */
-.pageMainTitle.sapMTitle {
-  font-size: 1.35rem !important;
-  font-weight: 700 !important;
-  color: #cc1a1a !important;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-/* Make the HBox stretch full width */
-.titleBar {
-    width :1200px !important;
-    padding: 8px 16px;
+/* The page now scrolls as ONE region via the DynamicPage content's
+   Panel + ScrollContainer (see main.view.xml). Nothing below may impose
+   its own fixed height / max-height / overflow:hidden — any of those
+   would clip content once the outer ScrollContainer scrolls past it.
+   Everything just flows to its natural height. */
+.contentWrapperFixed {
+    width: 100%;
+    max-width: none;      /* remove the cap, or raise it, e.g. 100% */
     box-sizing: border-box;
+    min-height: 100%;
+}
+
+/* Tighten the default sapUiSmallMargin (0.5rem all round) that
+   contentWrapperFixed shares — trims the extra air above/around the
+   dashboard card so it sits snug under the filter bar. */
+.sapUiSmallMargin.contentWrapperFixed {
+    margin: 0.1rem 0.5rem 0.5rem;
+}
+
+.dashboardCard {
     background: #fff;
+    border-radius: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
 }
 
-/* Title grows and centers its text */
-.titleWrapper {
-    flex: 1 1 auto !important;
-    text-align: center !important;
+/* Center the Opening balance / line-items panel on wide screens instead of
+   letting it stretch edge-to-edge — reads much cleaner on large monitors.
+   align-self overrides the parent VBox's default alignItems:Stretch, which
+   would otherwise force this back to 100% width regardless of max-width. */
+.mdRightPanelFullWidth {
+    max-width: 75rem;
+    width: 100%;
+    align-self: center;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-.titleText .sapMTextMaxLine,
-.titleText span,
-.titleText {
-    font-size: 22px !important;
-    font-weight: 700 !important;
-    color: #08090a !important;
-    text-align: center !important;
-    width: 100% !important;
-    display: block !important;
+.dashboardIconTabBar {
+    display: flex;
+    flex-direction: column;
 }
 
-/* Logo fixed left */
-.logoImage {
+.dashboardIconTabBar .sapMITBContent {
+    display: flex;
+    overflow: visible;
+    /* UI5's default IconTabBar content padding is what was pushing the
+       chart panels far down under the tab strip — flatten it and let
+       .chartRow's own small margin-top control the gap instead. */
+    padding: 0 !important;
+}
+
+/* Tab content area: no internal scrollbar of its own anymore — the outer
+   ScrollContainer is the only scroller, so the top-5 list, donut/legend,
+   and vendors table all just render at their full natural height. */
+.tabScrollArea {
+    overflow: visible;
+    width: 100%;
+    padding-top: 0.85rem;
+}
+
+.vendorsTableWrapper {
+    max-height: none;
+    overflow-y: visible;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Force a comfortable minimum table width so columns never get squeezed
+   on narrow/mobile screens — the wrapper scrolls horizontally instead. */
+.vendorsTableWrapper .sapMListTbl {
+    min-width: 45rem;
+}
+
+/* Open Items detail dialog table: same horizontal-scroll approach — all
+   columns stay full width and readable, the wrapper scrolls instead of
+   letting the responsive table pop columns onto their own inline rows. */
+.openItemsDetailScroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+}
+
+.openItemsDetailScroll .sapMListTbl {
+    min-width: 75rem;
+}
+
+.dashboardCardTitle {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a2b47;
+}
+
+.cardHeaderIcons {
+    gap: 0.9rem;
+}
+
+.cardHeaderIcon {
+    color: #6a6d70;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.cardHeaderIcon:hover {
+    color: #3979c9;
+}
+
+.dashboardIconTabBar {
+    margin-top: 0.5rem;
+}
+
+.dashboardCardHeaderRow {
+    padding-bottom: 0.5rem;
+}
+
+.cardHeaderIcons {
+    gap: 0.9rem;
+}
+
+.cardHeaderIcon {
+    color: #6a6d70;
+    font-size: 1.05rem;
+    cursor: pointer;
+}
+
+.cardHeaderIcon:hover {
+    color: #3979c9;
+}
+
+.dashboardIconTabBar .sapMITBHead {
+    border-bottom: 1px solid #eee;
+}
+
+.chartRow {
+    align-items: stretch;
+    gap: 1.25rem;
+    width: 100%;
+}
+
+.panelSubTitle {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1a2b47;
+    margin-bottom: 0.3rem;
+    display: block;
+}
+
+.vendorsForHeading {
+    font-size: 1.15rem;
+    font-weight: 900;
+}
+
+/* ═══════════════ KPI TILES : Invoice / Advance / Net Amount totals ═══════════════ */
+.kpiTilesRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    width: 100%;
+    margin-top: 1.25rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    box-sizing: border-box;
+}
+
+.kpiTile {
+    background: #ffffff;
+    border: 1px solid #eef0f2;
+    border-radius: 0.75rem;
+    padding: 1.1rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    flex: 1 1 14rem;
+    min-width: 14rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.kpiTileHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.kpiTileClickable {
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.kpiTileClickable:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.06);
+    transform: translateY(-1px);
+}
+
+.kpiTileIcon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #ffffff;
+    font-size: 1.2rem;
+}
+
+.kpiTileIconBlue {
+    background: #3979c9;
+}
+
+.kpiTileIconOrange {
+    background: #e8791e;
+}
+
+.kpiTileIconGreen {
+    background: #0f9d78;
+}
+
+.kpiTileSigma {
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.kpiTileLabel {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a2b47;
+}
+
+.kpiTileValue {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a2b47;
+}
+
+.kpiTileCurrency {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #8b8f97;
+}
+
+/* ═══════════════ OPEN ITEMS TAB : GenericTile (RE / Non-RE totals) ═══════════════ */
+.openItemsGenericTile {
+    margin: 0;
+}
+
+.openItemsGenericTile .sapMGT {
+    height: auto;
+}
+
+.kpiGenericTileContent {
+    padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+    gap: 0.2rem;
+}
+
+.kpiTileRowLabel {
+    font-size: 0.8rem;
+    color: #6a6d70;
+}
+
+.kpiTileRowValue {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a2b47;
+}
+
+.kpiTileRowBar {
+    height: 4px;
+    width: 100%;
+    border-radius: 2px;
+    margin-bottom: 0.3rem;
+}
+
+.kpiTileRowBarBlue {
+    background: #3979c9;
+}
+
+.kpiTileRowBarGreen {
+    background: #0f9d78;
+}
+
+/* Both chart columns get the same boxed treatment so they read as one
+   neat, equal-height pair — no matter how much content either holds. */
+.dashPanelBox {
+    background: #ffffff;
+    border: 1px solid #eef0f2;
+    border-radius: 0.6rem;
+    padding: 0.2rem 0.2rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.noteBox {
+    background: #eaf2fd;
+    border-radius: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.noteIcon {
+    color: #3979c9;
+    font-size: 0.9rem;
     flex-shrink: 0;
 }
 
-/* Make FilterBar labels bold */
-.sapUiCompFilterBar .sapMLabel,
-.sapUiCompFilterBar .sapMLabelTextWrapper {
-    font-weight: 1000 !important;
+.noteText {
+    color: #4a5b73;
+    font-size: 0.75rem;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   Supplier Open Items  –  css/style.css
-   Covers: Main, Detail, Table views
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/* ─── Shared root containers ────────────────────────────────────────────────── */
-.detailRoot,
-.tableRoot {
-  height: 100%;
-  background: #f5f6f7;
-  box-sizing: border-box;
+.topCategoriesPanel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-/* ─── Shared slim top bar ───────────────────────────────────────────────────── */
-.detailTopBar {
-  background: #ffffff;
-  padding: 0.45rem 1rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  min-height: 52px;
-  box-sizing: border-box;
+.topCategoriesNamesBox {
+    background: #fafbfc;
+    border: 1px solid #eef0f2;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    box-sizing: border-box;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 
-.topBarBackBtn {
-  margin-right: 0.5rem;
+.topCategoriesNamesContainer {
+    display: flex;
+    flex-direction: column;
 }
 
-.topBarVendorBox {
-  gap: 2px;
+.topCatHeaderLine {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 
-.topVendorName {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #32363a;
-  line-height: 1.3;
+.topCatRow {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 1.9rem;
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+    margin: -0.15rem -0.3rem;
+    border-radius: 0.35rem;
+    transition: background 0.15s ease;
+    border-bottom: 1px solid #f2f3f5;
 }
 
-.topVendorMeta {
-  font-size: 0.68rem;
-  color: #8c8c8c;
-  letter-spacing: 0.02em;
+.topCatRow:last-child {
+    border-bottom: none;
 }
 
-/* ─── Divider ────────────────────────────────────────────────────────────────── */
-.pageDivider {
-  border: none;
-  border-top: 1px solid #e8e8e8;
-  margin: 0;
+.topCatRow:hover {
+    background: #eef2fa;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   DETAIL VIEW  –  Tile strip
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-.tileStrip {
-  padding: 1.25rem 1rem 0.75rem 1rem;
-  background: #f5f6f7;
-  gap: 1rem;
+.topCatValueRow {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    min-height: 2.6rem;
+    cursor: pointer;
+    padding: 0.2rem 0.3rem;
+    margin: -0.2rem -0.3rem;
+    border-radius: 0.35rem;
+    transition: background 0.15s ease;
+    border-bottom: 1px solid #f2f3f5;
+    font-size: 0.85rem;
 }
 
-/* Base tile */
-.kpiTile {
-  width: 190px !important;
-  border-radius: 10px !important;
-  background: #ffffff !important;
-  cursor: pointer;
-  border-top: 4px solid transparent !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09) !important;
-  transition: box-shadow 0.2s ease, transform 0.15s ease;
+.topCatValueRow:last-child {
+    border-bottom: none;
 }
 
-.kpiTile:hover {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14) !important;
-  transform: translateY(-2px);
+.topCatValueRow:hover {
+    background: #eef2fa;
 }
 
-/* RE  →  teal */
-.kpiTileRE {
-  border-top-color: #009688 !important;
-}
-.kpiTileRE .sapMGTHdrTxt {
-  color: #007b6e !important;
-  font-weight: 700 !important;
-}
-
-/* Other  →  amber */
-.kpiTileOther {
-  border-top-color: #f59e0b !important;
-}
-.kpiTileOther .sapMGTHdrTxt {
-  color: #b45309 !important;
-  font-weight: 700 !important;
+.topCatName {
+    color: #333;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   TABLE VIEW  –  Section title, summary strip, table
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/* Section title bar */
-.sectionTitleBar {
-  padding: 0.9rem 1rem 0.4rem 1rem;
-  gap: 0.6rem;
-  align-items: center;
+.topCatValue {
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: #1a2b47;
+    white-space: nowrap;
 }
 
-/* Coloured pill badge  e.g.  ● RE  or  ● OTHER */
-.typeBadge {
-  display: inline-block;
-  color: #ffffff;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  padding: 0.18rem 0.6rem;
-  border-radius: 20px;
-  vertical-align: middle;
-  line-height: 1.5;
+.topCatPercent {
+    font-weight: 400;
+    color: #6a6d70;
+    font-size: 0.72rem;
+    white-space: nowrap;
 }
 
-.sectionTitle {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #32363a;
+.topCatBarTrack {
+    height: 4px;
+    width: 100%;
+    background: #eef0f2;
+    border-radius: 3px;
+    overflow: hidden;
 }
 
-/* Summary strip  (Invoice | Advance | Net) */
-.summaryStrip {
-  margin: 0 1rem 0.7rem 1rem;
-  background: #eef4ff;
-  border-left: 3px solid #0a6ed1;
-  border-radius: 0 6px 6px 0;
-  padding: 0.45rem 0.9rem;
+.topCatBarFill {
+    height: 100%;
+    border-radius: 3px;
 }
 
-.summaryText {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #0a6ed1;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.donutPanel {
+    display: flex;
+    flex-direction: column;
 }
 
-/* Table wrapper */
-.tableWrap {
-  padding: 0 1rem 1.5rem 1rem;
+.donutAndLegend {
+    align-items: flex-start;
+    gap: 1.25rem;
+    flex-wrap: wrap;
 }
 
-/* sap.m.Table */
-.openItemsTable {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  overflow: hidden;
-  background: #ffffff;
+.donutAndLegend > .sapMFlexItem {
+    min-width: 0;
 }
 
-.openItemsTable .sapMListTblHeaderCell {
-  background: #fafafa !important;
-  font-size: 0.7rem !important;
-  font-weight: 700 !important;
-  text-transform: uppercase;
-  color: #6a6d70 !important;
-  letter-spacing: 0.04em;
+.donutLegendScroll {
+    flex: 1 1 200px;
+    min-width: 160px;
+    max-width: 100%;
 }
 
-/* Amount cells */
-.amtCell {
-  text-align: right !important;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: #0a6ed1;
+.donutHeaderIcon {
+    color: #3979c9;
+    font-size: 1.1rem;
 }
 
-/* Empty state */
-.emptyMsg {
-  font-size: 0.85rem;
-  color: #8c8c8c;
-  font-style: italic;
-  display: block;
-  padding: 2.5rem 1rem;
-  text-align: center;
+.donutMenuDots {
+    color: #b0b3b8;
+    font-size: 1rem;
+    transform: rotate(90deg);
 }
 
-/* ─── Recon Table – Totals Row ───────────────────────────────────────────────── */
-.tableTotalsRow {
-  display: flex;
-  align-items: center;
-  gap: var(--col-gap);
-  background: #e8f4e8;
-  border-top: 2px solid #107e3e;
-  border-bottom: 2px solid #107e3e;
-  padding: 0.4rem var(--row-pad-h);
-  margin-top: 2px;
-  width: 100%;
-  min-width: var(--recon-row-min-width);   /* NEW — keeps totals row aligned with the scrolling data rows above */
-  box-sizing: border-box;
+.donutHeaderDivider {
+    height: 3px;
+    width: 2.5rem;
+    background: #3979c9;
+    border-radius: 2px;
+    margin-bottom: 0.75rem;
 }
 
-.totalLabel {
-  font-weight: 700 !important;
-  color: #107e3e !important;
-  font-size: 0.85rem;
+.donutSvgContainer {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
 }
 
-.totalAmt {
-  font-weight: 700 !important;
-  color: #107e3e !important;
-  font-size: 0.85rem;
+.dashboardGrid {
+    width: 100%;
+}
+
+.tabScrollArea {
+    container-type: inline-size;
+    container-name: chartArea;
+}
+
+/* GridContainer items request fixed column spans (5/5/2) that don't divide
+   evenly once the CHART AREA itself is narrow — which can happen even in a
+   wide browser window if this panel sits in a narrow split/side pane. A
+   viewport media query can't see that, so this keys off the actual
+   container width instead. Below that width, CSS grid auto-placement was
+   wrapping cards into overlapping rows; force a plain single-column stack. */
+@container chartArea (max-width: 600px) {
+    .dashboardGrid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .dashboardGrid > .sapFGridContainerItemWrapper {
+        width: 100% !important;
+        height: auto !important;
+        grid-column: unset !important;
+        grid-row: unset !important;
+    }
+
+    .topCategoriesPanel,
+    .donutPanel,
+    .advanceSummaryPanel {
+        height: auto;
+    }
+
+    .topCategoriesNamesBox {
+        max-height: 16rem;
+    }
+}
+
+.topCategoriesPanel,
+.donutPanel,
+.advanceSummaryPanel {
+    height: 100%;
+}
+
+.advanceSummaryPanel {
+    gap: 0.5rem;
+}
+
+.advanceStatTile {
+    background: #fafbfc;
+    border: 1px solid #eef0f2;
+    border-radius: 0.6rem;
+    padding: 0.7rem 0.8rem;
+    gap: 0.45rem;
+    min-width: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.advanceStatTileActive {
+    background: #eaf2fd;
+    border-color: #d3e4f8;
+}
+
+.advanceStatHeader {
+    gap: 0.5rem;
+}
+
+.advanceStatIcon {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    color: #ffffff;
+}
+
+.advanceStatIconGreen {
+    background: #0f9d78;
+}
+
+.advanceStatIconBlue {
+    background: #3979c9;
+}
+
+.advanceStatIconOrange {
+    background: #e8791e;
+}
+
+.advanceStatIconSigma {
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.advanceStatLabel {
+    font-size: 0.75rem;
+    color: #6a6d70;
+    white-space: normal;
+}
+
+.advanceStatValue {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a2b47;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.donutSvgWrapper {
+    position: relative;
+    width: 100%;
+    max-width: 260px;
+}
+
+.donutCenterText {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+.donutCenterLabel {
+    font-size: 0.8rem;
+    color: #6a6d70;
+}
+
+.donutCenterValue {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a2b47;
+}
+
+.donutSliceLabel {
+    fill: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.donutSlice {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.donutSlice:hover {
+    opacity: 0.85;
+}
+
+.donutLegendList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.donutLegendRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    min-width: 0;
+}
+
+.donutLegendDotCustom {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.donutLegendLabelCustom {
+    color: #333;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.donutLegendValueCustom {
+    font-weight: 700;
+    color: #6a6d70;
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-left: auto;
+    padding-left: 0.5rem;
+}
+
+.donutFootnote {
+    text-align: center;
+    color: #9a9a9a;
+    font-size: 0.75rem;
+    margin-top: 1rem;
+}
+
+/* ═══════════════ MASTER-DETAIL PANEL : Supplier drill-down ═══════════════ */
+.mdInfoBar {
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.mdInfoChip {
+    background: #eef2fa;
+    color: #1a2b47;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.3rem 0.75rem;
+    border-radius: 1rem;
+}
+
+.mdSectionCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    background: #ffffff;
+}
+
+.mdSectionHeaderRow {
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+
+.mdSectionIcon {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.45rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+
+.mdSectionIconFi {
+    background: #eaf2fd;
+    color: #3979c9;
+}
+
+.mdSectionIconMm {
+    background: #f1eafc;
+    color: #7b3fd1;
+}
+
+.mdSectionIconQm {
+    background: #eafaf3;
+    color: #0f9d78;
+}
+
+.mdSectionHeader {
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #000000;
+}
+
+.mdMetricRow {
+    position: relative;
+    padding: 0.4rem 1.5rem 0.4rem 0.5rem;
+    border-radius: 0.4rem;
+    cursor: pointer;
+}
+
+.mdMetricRow::after {
+    content: "\276F";
+    position: absolute;
+    right: 0.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #b0b3b8;
+    font-size: 0.7rem;
+}
+
+.mdMetricRow:hover {
+    background: #eef2fa;
+}
+
+.mdMetricRowActive {
+    background: #eaf2fd;
+}
+
+.mdMetricRowClickable {
+    cursor: pointer;
+}
+
+.mdMetricLabel {
+    font-size: 0.85rem;
+    color: #333;
+}
+
+.mdMetricLabelActive {
+    color: #3979c9;
+    font-weight: 700;
+}
+
+.mdMetricValue {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1a2b47;
+    white-space: nowrap;
+}
+
+.mdMetricValueActive {
+    color: #3979c9;
+}
+
+.mdMetricValueGood {
+    color: #0f9d78;
+}
+
+.mdMetricValueBad {
+    color: #b3261e;
+}
+
+.mdRightPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.mdRightPanelFullWidth {
+    width: 100%;
+    flex: 1 1 100%;
+}
+
+.mdRightHeaderRow {
+    margin-bottom: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid #eef0f2;
+}
+
+/* No-data state shown in place of a panel's chart/table when the current
+   supplier + date range has zero rows for that section (Opening balance /
+   Transactions / Advance balance / Debit notes / Payments) — a clear
+   illustration instead of a flat 0-value chart and an empty grid. */
+.mdNoDataIllustration {
+    background: #fafbfc;
+    border: 1px solid #eef0f2;
+    border-radius: 0.75rem;
+    padding: 1.5rem 1rem;
+    margin-top: 0.4rem;
+}
+
+.mdRightHeaderTitleRow {
+    gap: 0.75rem;
+}
+
+.mdNoMargin {
+    margin-bottom: 0;
+}
+
+.mdChipSmall {
+    background: #eef2fa;
+    color: #3979c9;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.75rem;
+    margin-left: 0.5rem;
+}
+
+.mdExportBtns {
+    gap: 0.25rem;
+}
+
+.mdStatTilesRow {
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.mdGenericModulePanel {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.35rem;
+    padding: 1.75rem 1rem;
+}
+
+.mdGenericModuleIcon {
+    font-size: 1.8rem;
+    color: #8a8d91;
+}
+
+.mdGenericModuleHint {
+    color: #8a8d91;
+    font-size: 0.8rem;
+}
+
+.mdStatTile {
+    background: #fafbfc;
+    border: 1px solid #eef0f2;
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    flex: 1 1 8rem;
+    min-width: 8rem;
+    min-height: 3.6rem;
+    gap: 0.2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(20, 30, 50, 0.06);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.mdStatTile1 {
+    background: #fafbfc;
+    border: 1px solid #eef0f2;
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    flex: 1 1 25rem;
+    min-width: 8rem;
+    min-height: 3.6rem;
+    gap: 0.2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(20, 30, 50, 0.06);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.mdStatTile:hover {
+    border-color: #d3e4f8;
+    box-shadow: 0 6px 16px rgba(57, 121, 201, 0.14);
+    transform: translateY(-1px);
+}
+
+/* Payments panel: identity + Payments Total + Payment items combined
+   into one wider tile — identity full-width on top, a horizontal
+   divider, then the other two fields side by side below split by a
+   vertical divider. */
+.mdPaymentsIdentityTile {
+    flex: 1 1 16rem;
+    min-width: 16rem;
+}
+
+.mdPaymentsTileDivider {
+    height: 1px;
+    background: #e3e6ea;
+    margin: 0.35rem 0;
+}
+
+.mdPaymentsTileCols {
+    gap: 0.75rem;
+}
+
+.mdPaymentsTileCol {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.mdPaymentsTileColRight {
+    border-left: 1px solid #e3e6ea;
+    padding-left: 0.75rem;
+}
+
+/* Color-coded left accent so identity / amount / count tiles read apart
+   from each other at a glance, matching their icon color. */
+.mdStatTileNeutral {
+    background: linear-gradient(155deg, #f7f9fb 0%, #eef1f5 100%);
+}
+
+.mdStatTileBlue {
+    background: linear-gradient(155deg, #f2f8fe 0%, #e2eefc 100%);
+}
+
+.mdStatTileBlue:hover {
+    border-color: #bcdafb;
+    box-shadow: 0 6px 16px rgba(57, 121, 201, 0.18);
+}
+
+.mdStatTileGreen {
+    background: linear-gradient(155deg, #f1fbf7 0%, #dff5ec 100%);
+}
+
+.mdStatTileGreen:hover {
+    border-color: #bdeeda;
+    box-shadow: 0 6px 16px rgba(15, 157, 120, 0.16);
+}
+
+.mdStatTileOrange {
+    background: linear-gradient(155deg, #fef7ee 0%, #fbe9d6 100%);
+}
+
+.mdStatTileOrange:hover {
+    border-color: #f6d9b3;
+    box-shadow: 0 6px 16px rgba(232, 121, 30, 0.16);
+}
+
+.mdPaymentsTotalTile {
+    flex: none;
+    align-self: flex-start;
+    min-width: 10rem;
+    margin-bottom: 0.5rem;
+}
+
+.mdStatIcon {
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+}
+
+.mdStatIconBlue {
+    background: #eaf2fd;
+    color: #3979c9;
+}
+
+.mdStatIconGreen {
+    background: #eafaf3;
+    color: #0f9d78;
+}
+
+.mdStatIconRed {
+    background: #fbeaea;
+    color: #b3261e;
+}
+
+.mdStatLabel {
+    font-size: 0.65rem;
+    color: #6a6d70;
+}
+
+.mdStatValue {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a2b47;
+}
+
+.mdStatValueGood {
+    color: #0f9d78;
+}
+
+.mdStatValueBad {
+    color: #b3261e;
+}
+
+.mdBarChartRow {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.6rem;
+    height: 5.6rem;
+    width: 100%;
+    padding: 0 0.25rem;
+    margin-bottom: 0.3rem;
+    overflow-x: auto;
+    box-sizing: border-box;
+}
+
+/* Each month column grows/shrinks equally so the 12 bars always span the
+   full width of the chart card instead of packing to the left and leaving
+   dead space on the right. */
+.mdBarCol {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 0.25rem;
+}
+
+.mdBar {
+    width: 1.4rem;
+    border-radius: 0.2rem 0.2rem 0 0;
+    background: #5b9bea;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mdBar:hover {
+    background: #3979c9;
+}
+
+.mdBarActive {
+    background: #1f5fb8;
+    box-shadow: 0 0 0 2px rgba(31, 95, 184, 0.25);
+}
+
+/* A month with a net negative balance draws its bar in red instead of
+   blue — same idea as the red/green used everywhere else for
+   negative/positive amounts (mdStatValueBad, formatValueState, etc). */
+.mdBarNegative {
+    background: #e5484d;
+}
+
+.mdBarNegative:hover {
+    background: #c92a2f;
+}
+
+.mdBarNegative.mdBarActive {
+    background: #b3261e;
+    box-shadow: 0 0 0 2px rgba(179, 38, 30, 0.25);
+}
+
+/* Months with no postings at all get a flat, muted sliver instead of the
+   normal blue fill — visually distinct from a genuinely small real value. */
+.mdBarEmpty {
+    background: #e5e8ec;
+    cursor: default;
+}
+
+.mdBarEmpty:hover {
+    background: #e5e8ec;
+}
+
+/* The "Normal / Open item / Partial payment" chart tile inside the
+   Payments panel's own stat-tiles row — one horizontal bar per category
+   (label left, track+fill in the middle, value right) instead of the
+   vertical columns the monthly chart uses, so it reads better inside a
+   short, wide stat-tile. Each row is clickable — filters the Payments
+   table below to that category (see _onPaymentsCategorySelected),
+   toggle-to-clear on a second click of the same row. */
+.mdHBarChartWrap {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.mdHBarRow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0.15rem 0.3rem;
+    border-radius: 0.1rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.mdHBarRow:hover {
+    background: rgba(57, 121, 201, 0.06);
+}
+
+.mdHBarRowActive {
+    background: rgba(57, 121, 201, 0.1);
+}
+
+.mdHBarLabel {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #4b4f54;
+    white-space: nowrap;
+    min-width: 5.4rem;
+}
+
+.mdHBarTrack {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 1rem;
+    background: #eef0f2;
+    border-radius: 0.1rem;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.mdHBar {
+    height: 100%;
+    border-radius: 0;
+    background: linear-gradient(90deg, #5b9bea, #3979c9);
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mdHBarRow:hover .mdHBar {
+    background: linear-gradient(90deg, #3979c9, #1f5fb8);
+}
+
+.mdHBarActive {
+    background: linear-gradient(90deg, #3979c9, #1f5fb8);
+    box-shadow: 0 0 0 2px rgba(31, 95, 184, 0.2);
+}
+
+.mdHBar.mdBarNegative {
+    background: linear-gradient(90deg, #ef6a6e, #e5484d);
+}
+
+.mdHBarValue {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #1a2b47;
+    white-space: nowrap;
+    min-width: 3rem;
+    text-align: right;
+}
+
+.mdBarLabel {
+    font-size: 0.62rem;
+    color: #6a6d70;
+    white-space: nowrap;
+}
+
+/* Total amount for the month, shown right under each bar (above the month
+   label) so the figure is visible on the chart itself, not just in the
+   hover tooltip. */
+.mdBarValue {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #3c3f42;
+    white-space: nowrap;
+}
+
+.mdLineItemsTitle {
+    margin-top: 0;
+}
+
+/* Chart stacked full-width above the Line items table (also full-width)
+   below it, instead of the two sitting side by side in a row. Both blocks
+   get the exact same gap below their title so "Balance movement" / "Line
+   items" sit on one clean baseline and their content starts at the same
+   distance under it. */
+.mdChartAndLineItemsStack {
+    gap: 0.75rem;
+    width: 100%;
+}
+
+/* Boxed like the other small metric cards on this page instead of bare
+   text-and-bars floating over blank space. */
+.mdChartColumn {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: #f5f9ff;
+    border: 1px solid #dbe7f7;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    box-shadow: 0 2px 8px rgba(57, 121, 201, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+}
+
+/* Stacked layout: the chart card now spans the full row instead of sizing
+   to its own content width. */
+.mdChartColumnFullWidth {
+    width: 100%;
+}
+
+.mdChartColumn .panelSubTitle,
+.mdLineItemsColumn .panelSubTitle {
+    margin-bottom: 0;
+}
+
+/* Same card treatment as .mdChartColumn (identical padding, so the two
+   titles stay aligned) — reads as two neat side-by-side panels instead of
+   one boxed chart floating next to bare, unboxed table text. */
+/* Smooth entry transition for the master-detail right-panel switches
+   (Opening balance <-> Transactions/Advance/Debit notes/Payments/generic
+   module). Each panel's root VBox carries this class; since it starts
+   from display:none (visible binding), the browser restarts the animation
+   every time it flips to visible, giving row-click / Go navigation a soft
+   fade + rise instead of an abrupt swap. */
+@keyframes mdPanelFadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mdPanelAnimate {
+    animation: mdPanelFadeSlideIn 0.22s ease-out;
+}
+
+.mdLineItemsColumn {
+    flex: 1 1 28rem;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: #ffffff;
+    border: 1px solid #eef0f2;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+}
+
+.mdLineItemsTable .sapMListTbl {
+    min-width: 28rem;
+}
+
+/* ═══════════════ SAP GRID TABLE (sap.ui.table.Table) : replaces the old
+   sap.m.Table for every line-items list. Column headers are fixed by the
+   control itself (no CSS sticky hack needed) and it owns its own vertical
+   + horizontal scrollbars, so it just needs a card border/radius plus a
+   few font/spacing tweaks to match the rest of the dashboard. ═══ */
+.mdGridTable {
+    border: 1px solid #eef0f2;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.mdGridTable .sapUiTableCtrlBefore,
+.mdGridTable .sapUiTableCtrlAfter {
+    border: none;
+}
+
+.mdGridTable .sapUiTableColHdrCnt {
+    background: #ffffff;
+    border-bottom: 2px solid #eef0f2;
+}
+
+.mdGridTable .sapUiTableCol {
+    font-size: 0.78rem;
+}
+
+.mdGridTable .sapUiTableCell {
+    font-size: 0.82rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+}
+
+.mdGridTable .sapUiTableRow:hover > .sapUiTableCell {
+    background: #f7fafd;
+}
+
+/* Line-items / transactions / payments / advance / debit-notes tables all
+   get a fixed-height scroll box of their own instead of growing with the
+   page — column headers stay stuck to the top of THIS box (sticky
+   ColumnHeaders needs a scrolling ancestor to stick against), and both
+   scrollbars (vertical + horizontal, for the min-width columns above)
+   live on the table itself, not the whole page. */
+.mdTableScrollWrap {
+    max-height: 22rem;
+    margin-top: 0.5rem;
+    overflow-y: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #eef0f2;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    /* Own stacking context — keeps the sticky header (and its shadow) painting
+       above the scrolled-past rows instead of any ancestor content bleeding
+       through it. */
+    position: relative;
+    isolation: isolate;
+}
+
+/* Elegance pass: tighter rows, a soft hover, and a crisper header rule so
+   the table reads as a clean grid instead of a stack of loose rows. */
+.mdLineItemsTable .sapMListTblRow:hover {
+    background: #f7fafd;
+}
+
+.mdLineItemsTable .sapMListTblCell {
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    font-size: 0.82rem;
+}
+
+.mdLineItemsTable .sapMListTblHeaderCell {
+    font-size: 0.78rem;
+}
+
+/* The sticky header row itself: without an OPAQUE background, the browser
+   still paints it on top positionally, but scrolled-past row/title content
+   showed through it (looked like overlapping text). Force a solid white
+   header, a crisp rule under it, and lift it above the scrolling rows with
+   z-index + a soft shadow so it visibly reads as a fixed "shelf". */
+.mdLineItemsTable .sapMListTblHeader,
+.mdLineItemsTable .sapMListTblHeaderCell {
+    background: #ffffff !important;
+    opacity: 1;
+}
+
+.mdLineItemsTable .sapMListTblHeader {
+    border-bottom: 2px solid #eef0f2;
+    box-shadow: 0 2px 4px rgba(20, 34, 58, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+.mdRightPanel {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.mdRightPanel .mdLineItemsTable,
+.mdRightPanel .sapMTableTBody {
+    max-width: 100%;
+}
+
+/* Let the line-items table scroll horizontally on its own, on genuinely
+   narrow viewports, rather than forcing the whole page to grow wider than
+   the viewport. NOTE: this must stay overflow-only — `display: block` on
+   the table wrapper breaks the native <table>'s column layout, collapsing
+   every column to its content width instead of stretching to fill the
+   available space (columns cluster left with a big empty gap after them). */
+.mdRightPanel > .mdLineItemsTable,
+.mdRightPanel .sapMListTblCnt {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ═══════════════ CHART / VENDORS / VENDOR HISTORY TABS ═══════════════ */
+.dashboardTabHeaderElegant {
+    margin-top: 0.15rem;
+}
+
+.dashboardTabHeaderElegant .sapMITBHead {
+    border-bottom: 1px solid #eef0f2;
+    gap: 0.4rem;
+}
+
+/* Pill-style filters instead of the default underline tabs — each one
+   gets a rounded hover state and a filled, elevated look when selected. */
+.dashboardTabHeaderElegant .sapMITBFilter {
+    border-radius: 0.5rem 0.5rem 0 0;
+    padding: 0.4rem 0.9rem;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dashboardTabHeaderElegant .sapMITBFilter .sapMITBText {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6a6d70;
+}
+
+.dashboardTabHeaderElegant .sapMITBFilter:hover {
+    background: #f3f6fb;
+}
+
+.dashboardTabHeaderElegant .sapMITBFilter:hover .sapMITBText {
+    color: #3979c9;
+}
+
+.dashboardTabHeaderElegant .sapMITBSelected {
+    background: #eaf2fd;
+}
+
+.dashboardTabHeaderElegant .sapMITBSelected .sapMITBText {
+    color: #3979c9;
+    font-weight: 700;
+}
+
+/* Suppress the browser's default focus outline on tab filters — without
+   this, clicking/tabbing to a filter draws a harsh rectangular box around
+   just the label text, on top of our own selected-state background. */
+.dashboardTabHeaderElegant .sapMITBFilter:focus,
+.dashboardTabHeaderElegant .sapMITBFilter .sapMITBText:focus,
+.dashboardTabHeaderElegant .sapMITBFilter *:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.dashboardTabHeaderElegant .sapMITBFilter .sapMITBContentArrow {
+    background: #3979c9;
+    height: 3px;
+    border-radius: 2px;
+}
+
+/* ═══════════════ MODULES SIDEBAR : docked Finance / Materials / Quality
+   panel next to the master-detail content, Gmail-style — pinned open by
+   default; "Modules" toggles mdSidebarPanel's visibility, and since it's a
+   flex sibling of mdRightContentArea (flex:1), the right panel reflows to
+   fill the freed width automatically instead of needing a manual resize. ═══ */
+.mdLayoutRow {
+    width: 100%;
+    align-items: stretch;
+}
+
+.mdSidebarPanel {
+    flex-shrink: 0;
+    align-self: flex-start;
+    /* A fixed compact width instead of `fit-content` — fit-content combined
+       with `position: sticky` was letting the panel's rendered box mismatch
+       its reserved layout width in some viewports, causing the sticky
+       "Modules" header to visually overlap the right panel's content
+       (text bleeding through). A plain fixed width is small enough to stay
+       tight to the actual row text and doesn't have that failure mode. */
+    width: 10.5rem;
+    border-right: 1px solid #eef0f2;
+    background: #f5f7fa;
+    /* Stays put while the right panel content scrolls past it — the page's
+       only scroller is the outer DynamicPage ScrollContainer (see the
+       "page scrolls as ONE region" note above), so this sticks relative
+       to that, not to a scroll container of its own. */
+    position: sticky;
+    top: 0.5rem;
+    max-height: calc(100vh - 1rem);
+    overflow-y: auto;
+    z-index: 2;
+}
+
+/* ═══ Modules sidebar rows : flat, compact list rows — no icon chips, no
+   card shadows/gradients, just a label (+ value) and a thin separator, so
+   the whole Finance/Materials/Quality list takes up as little vertical
+   space as possible. ═══ */
+.modulesList,
+.modulesList .sapMListUl {
+    background: transparent;
+}
+
+.modulesList .sapMLIB,
+.modulesList .sapMLIBFocusable {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+.mdSidebarGroupHeaderLI {
+    margin: 0.2rem 0.4rem 0.05rem;
+}
+
+.mdSidebarGroupHeaderLI:first-child {
+    margin-top: 0.15rem;
+}
+
+.mdSidebarGroupBanner {
+    width: 100%;
+    padding: 0.1rem 0;
+    border-bottom: 2px solid #dbe0e6;
+}
+
+.mdSidebarGroupTitle {
+    color: #46587f;
+    font-weight: 700;
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+}
+
+/* Color-code each group's banner so Finance/Materials/Quality read apart
+   from each other at a glance, even once scrolled past their own header. */
+.mdBannerBlue {
+    border-bottom-color: #3979c9;
+}
+.mdBannerBlue .mdSidebarGroupTitle {
+    color: #2c5fa3;
+}
+
+.mdBannerAmber {
+    border-bottom-color: #e8791e;
+}
+.mdBannerAmber .mdSidebarGroupTitle {
+    color: #b85a10;
+}
+
+.mdBannerPurple {
+    border-bottom-color: #8e6fce;
+}
+.mdBannerPurple .mdSidebarGroupTitle {
+    color: #5f45a3;
+}
+
+.mdSidebarRowLI {
+    margin: 0 0.4rem;
+}
+
+.mdSidebarRowInner {
+    width: 100%;
+    padding: 0.2rem 0.3rem;
+    gap: 0.6rem;
+    border-bottom: 1px solid #f0f1f3;
+    border-radius: 0.3rem;
+    transition: background 0.12s ease, padding-left 0.12s ease;
+}
+
+.mdSidebarRowLI:last-child .mdSidebarRowInner {
+    border-bottom: none;
+}
+
+/* Clear hover feedback: tinted background plus a small left-accent nudge,
+   not just a barely-visible background tint. */
+.mdSidebarRowLI[class*="sapMLIBActionable"] {
+    cursor: pointer;
+}
+
+.mdSidebarRowLI[class*="sapMLIBActionable"]:hover .mdSidebarRowInner {
+    background: #e7edf7;
+    padding-left: 0.45rem;
+}
+
+.mdSidebarRowLI[class*="sapMLIBActionable"]:hover .mdSidebarRowLabel {
+    color: #2c5fa3;
+}
+
+.mdSidebarRowLabel {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #32363a;
+    transition: color 0.12s ease;
+}
+
+.mdSidebarRowValue {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #32363a;
+    white-space: nowrap;
+}
+
+.mdSidebarHeaderRow {
+    padding: 0.1rem 0.35rem;
+    border-bottom: 1px solid #eef0f2;
+    min-height: 0;
+    /* Opaque and above the row list beneath it — the panel is sticky, and
+       without its own solid background/stacking this row could let the
+       right panel's content show/bleed through as the page scrolls. */
+    background: #f5f7fa;
+    position: relative;
+    z-index: 1;
+}
+
+.mdSidebarHeaderRow .panelSubTitle {
+    font-size: 0.72rem;
+}
+
+/* UI5's default disabled state just drops a button's opacity to 0.4 — on
+   this blue "Modules" button that still reads as blue (and clickable) at a
+   glance. Force it fully grey while the sidebar is open, so it visibly
+   reads as disabled rather than a lighter shade of active. */
+/* UI5 renders the button's id with a view-id prefix (e.g.
+   "...---main--mdLeftPanelMenuButton"), so match on the suffix rather than
+   an exact #id. */
+[id$="--mdLeftPanelMenuButton"].sapMBtnDisabled,
+[id$="--mdLeftPanelMenuButton"].sapMBtnDisabled .sapMBtnContent,
+[id$="--mdLeftPanelMenuButton"].sapMBtnDisabled .sapMBtnIcon {
+    opacity: 1;
+    color: #8a8d91 !important;
+    border-color: #d5d7db !important;
+    cursor: not-allowed;
+}
+
+.mdRightContentArea {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+@media (max-width: 900px) {
+    .mdSidebarPanel {
+        width: 14rem;
+        max-width: 14rem;
+    }
+}
+
+/* ═══════════════ MODULES FLYOUT : Finance / Materials / Quality panel ═══════════════ */
+.modulesPopover {
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.modulesPopover .sapMPopoverCont {
+    padding: 0;
+}
+
+.modulesPopover .sapMDialogTitle,
+.modulesPopover .sapMBar.sapMHeader-CTX {
+    background: linear-gradient(135deg, #3979c9 0%, #2c5fa3 100%);
+}
+
+.modulesPopover .sapMDialogTitle .sapMTitle,
+.modulesPopover .sapMBar.sapMHeader-CTX .sapMTitle {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.modulesList {
+    background: #ffffff;
+}
+
+/* Group headers get their own tinted band, small caps, letter-spacing —
+   read as a section label rather than a plain list row. */
+.modulesList .sapMGHLI {
+    background: #f3f6fb;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #3979c9;
+    border-top: 1px solid #eef0f2;
+    border-bottom: 1px solid #eef0f2;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+.modulesList .sapMGHLI:first-child {
+    border-top: none;
+}
+
+/* Metric rows: quieter label, bold value, gentle hover + left accent so
+   clickable rows (Opening balance / Payments) read as interactive. */
+.modulesList .sapMLIB {
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+    transition: background 0.15s ease;
+}
+
+.modulesList .sapMSLITitleOnly,
+.modulesList .sapMSLITitle {
+    font-size: 0.85rem;
+    color: #333333;
+}
+
+.modulesList .sapMSLIInfo {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1a2b47;
+}
+
+.modulesList .sapMLIB-Active:hover,
+.modulesList .sapMLIBHoverable:hover {
+    background: #eaf2fd;
+}
+
+.modulesList .sapMLIB-Active {
+    border-left: 3px solid #3979c9;
+}
+
+.modulesList .sapMLIB:not(.sapMLIB-Active) {
+    border-left: 3px solid transparent;
+}
+
+.modulesList .sapMGHLI .sapUiIcon {
+    color: #3979c9;
+    margin-right: 0.5rem;
+}
+
+/* Deeper elegance pass: floating shadow + slight lift on the whole
+   popover, a subtle inset divider under the title, and distinct icon
+   badges/accent colors per module so Finance / Materials / Quality read
+   as three visually separate sections rather than one flat list. */
+.modulesPopover.sapMPopover {
+    box-shadow: 0 12px 32px rgba(20, 34, 58, 0.22), 0 2px 8px rgba(20, 34, 58, 0.12);
+    border: none;
+}
+
+.modulesPopover .sapMDialogTitle,
+.modulesPopover .sapMBar.sapMHeader-CTX {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.modulesList .sapMListItems {
+    padding: 0.25rem 0;
+}
+
+/* Group header rows get a small rounded icon badge instead of a bare
+   glyph, and each module gets its own accent (blue / purple / green)
+   picked up via nth-of-type so the three sections are easy to tell apart
+   at a glance. */
+.modulesList .sapMGHLI {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modulesList .sapMGHLI .sapUiIcon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #eaf2fd;
+    margin-right: 0.35rem;
+    font-size: 0.85rem;
+}
+
+.modulesList .sapMGHLI:nth-of-type(3n+2) .sapUiIcon {
+    background: #f1eafc;
+    color: #7b3fd1;
+}
+
+.modulesList .sapMGHLI:nth-of-type(3n) .sapUiIcon {
+    background: #eafaf3;
+    color: #0f9d78;
+}
+
+/* Extra breathing room + a soft divider between the three module blocks,
+   plus a subtle scale-in on row hover for a bit of polish. */
+.modulesList .sapMGHLI:not(:first-child) {
+    margin-top: 0.35rem;
+}
+
+.modulesList .sapMLIB-Active {
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.modulesList .sapMLIB-Active:hover {
+    border-left-color: #2c5fa3;
+}
+
+/* ═══════════════ RESPONSIVE : TABLET ═══════════════ */
+@media (max-width: 1024px) {
+    .dashboardCard {
+        padding: 0.85rem 1rem;
+    }
+
+    .chartRow {
+        gap: 1rem;
+    }
+
+    .dashPanelBox {
+        padding: 0.85rem 0.9rem;
+    }
+
+    .filterField {
+        min-width: 9rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .mdRightPanel {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+/* ═══════════════ RESPONSIVE : MOBILE ═══════════════ */
+@media (max-width: 600px) {
+    .customFilterBar {
+        gap: 0.75rem 0.6rem;
+    }
+
+    .filterField {
+        min-width: 0;
+        flex: 1 1 calc(50% - 0.3rem);
+    }
+
+    .filterGoBtn {
+        width: 100%;
+        margin-left: 0;
+        order: 1;
+    }
+
+    .dashboardCard {
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+    }
+
+    .dashboardCardTitle {
+        font-size: 0.95rem;
+    }
+
+    .cardHeaderIcons {
+        gap: 0.6rem;
+    }
+
+    .chartRow {
+        flex-direction: column;
+    }
+
+    .donutAndLegend {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .donutSvgContainer {
+        justify-content: center;
+    }
+
+    .topCatName {
+        font-size: 0.8rem;
+    }
+
+    .panelSubTitle {
+        font-size: 1rem;
+    }
+
+    .mdRightPanel {
+        width: 100%;
+    }
+
+    .mdStatTile {
+        flex: 1 1 100%;
+    }
+
+    .mdLineItemsTable .sapMListTbl {
+        min-width: 0;
+    }
+
+}
+/* ═══════════════ Dashboard Styles ═══════════════ */
+/* ===================== Page & Layout ===================== */
+html, body {
+    height: 100%;
+    width: 100%;
+}
+
+.dashboardPage {
+    height: 100%;
+    width: 100%;
+}
+
+.dashboardWrapper {
+    height: 100%;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    box-sizing: border-box;
+    background: var(--sapBackgroundColor, #f5f6f7);
+}
+
+/* ===================== Filter Bar ===================== */
+.filterBar {
+    background: var(--sapObjectHeader_Background, #ffffff);
+    border: 1px solid var(--sapList_BorderColor, #e5e5e5);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* ===================== Dashboard Scroll / Grid ===================== */
+.dashboardScroll {
+    height: calc(100% - 6rem);
+}
+
+.dashboardGrid {
+    gap: 1rem;
+    align-items: stretch;
+}
+
+/* Narrow list-style cards (Contract Monitoring, Products, Reorder, Contacts, Capacity) */
+.cardMedium {
+    width: 260px;
+    flex: 0 0 260px;
+}
+
+/* Small KPI-only card (Awaiting Approval) */
+.cardSmall {
+    width: 220px;
+    flex: 0 0 220px;
+}
+
+/* Wide cards with charts/tables (Region Performance, Purchase Forecast, New POs) */
+.cardWide {
+    width: 340px;
+    flex: 1 1 340px;
+    min-width: 320px;
+}
+
+/* ===================== Card Header ===================== */
+.cardHeader {
+    padding: 0.75rem 1rem 0.5rem 1rem;
+    border-bottom: 1px solid var(--sapList_BorderColor, #e5e5e5);
+}
+
+.cardHeader .sapMTitle {
+    font-size: 1rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+}
+
+.cardSubtitle {
+    color: var(--sapContent_LabelColor, #6a6d70);
+    font-size: 0.75rem;
+}
+
+.cardCount {
+    color: var(--sapContent_LabelColor, #6a6d70);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+/* ===================== Card Content ===================== */
+.cardContent {
+    padding: 0.75rem 1rem 1rem 1rem;
+}
+
+.legendText {
+    color: var(--sapContent_LabelColor, #6a6d70);
+    font-size: 0.75rem;
+}
+
+.negativeText {
+    color: var(--sapNegativeColor, #b00);
+}
+.textLeft{
+    color:rgb(0, 2, 107);
+}
+.textLeftNegative {
+    color: rgb(251, 106, 106);
+}
+
+.textLeftPositive {
+    color: #2e7d32;
+}
+
+.kpiValue {
+    font-size: 1.5rem;
+}
+
+.kpiValueBig {
+    font-size: 2.5rem;
+}
+
+.kpiSuccess {
+    color: var(--sapPositiveColor, #107e3e);
+}
+
+.miniProgress {
+    width: 100%;
+}
+
+.contactIcon {
+    color: var(--sapContent_IconColor, #6a6d70);
+    border-radius: 50%;
+    background: var(--sapList_Background, #f5f6f7);
+    padding: 0.35rem;
+}
+
+.miniTable .sapMListTblCell {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+
+/* ===================== Responsive ===================== */
+@media (max-width: 1024px) {
+    .cardMedium, .cardSmall, .cardWide {
+        width: 100%;
+        flex: 1 1 100%;
+    }
+}   
+/* ========================================================= */
+/* Payments overall section                                  */
+/* ========================================================= */
+
+.mdPaymentsRoot {
+    width: 100%;
+}
+
+
+/* ========================================================= */
+/* Compact Payments Overview tile                            */
+/* ========================================================= */
+
+.mdPaymentsChartTile {
+    width: 270px;
+    min-width: 270px;
+    height: 120px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+
+/* Chart tile content */
+.mdPaymentsChartContainer {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0.15rem 0.25rem;
+}
+
+
+/* Chart title */
+.mdPaymentsChartHeader {
+    width: 100%;
+    height: 1.5rem;
+}
+
+
+/* ========================================================= */
+/* Payments by Type compact section                          */
+/* ========================================================= */
+
+.mdPaymentsTypeChart {
+    width: 100%;
+    height: 105px;
+    min-height: 105px;
+    max-height: 105px;
+
+    box-sizing: border-box;
+
+    margin-top: 0.25rem;
+    margin-bottom: 0.5rem;
+
+    padding: 0.4rem 0.75rem;
+
+    border-top: 2px solid #2f7ed8;
+    border-radius: 0.5rem;
+
+    background: #ffffff;
+
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+    overflow: hidden;
+}
+
+
+.mdPaymentsTypeChartContent {
+    width: 100%;
+    height: 100%;
+}
+
+
+.mdPaymentsTypeChartTitle {
+    height: 1.25rem;
+    margin: 0;
+    padding: 0;
+}
+
+
+/* Actual HTML chart container */
+.mdPaymentsTypeChart #mdPaymentsBarChartContainer {
+    width: 100%;
+    height: 65px;
+    max-height: 65px;
+    overflow: hidden;
 }

@@ -29,6 +29,15 @@ sap.ui.define([
 
                 // set the device model
                 this.setModel(models.createDeviceModel(), "device");
+
+                // Content density: cozy (bigger, touch-friendly tap targets) on
+                // tablets/phones, compact (denser, mouse-optimized) on desktop.
+                // index.html no longer hardcodes sapUiSizeCompact so this is
+                // the only place density gets decided — keeps the app usable
+                // with a finger, not just a mouse pointer.
+                document.body.classList.add(
+                    Device.support.touch ? "sapUiSizeCozy" : "sapUiSizeCompact",
+                );
             }
         });
     }
