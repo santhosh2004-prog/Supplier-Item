@@ -1261,6 +1261,13 @@
     margin-top: 0;
 }
 
+/* Row holding the "Line items (N records)" title alongside the Column
+   Settings / Select Layout buttons for the master-detail table. */
+.mdLineItemsTitleRow {
+    width: 100%;
+    margin-bottom: 0.3rem;
+}
+
 /* Chart stacked full-width above the Line items table (also full-width)
    below it, instead of the two sitting side by side in a row. Both blocks
    get the exact same gap below their title so "Balance movement" / "Line

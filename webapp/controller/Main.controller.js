@@ -5,6 +5,7 @@ sap.ui.define(
     "sap/ui/model/FilterOperator",
     "sap/ui/model/json/JSONModel",
     "sap/m/MessageToast",
+    "sap/m/MessageBox",
     "sap/ui/core/Fragment",
   ],
   function (
@@ -13,6 +14,7 @@ sap.ui.define(
     FilterOperator,
     JSONModel,
     MessageToast,
+    MessageBox,
     Fragment,
   ) {
     "use strict";
@@ -83,6 +85,25 @@ sap.ui.define(
         // (this initial value) defaults to Opening balance.
         this._sActiveMdPanel = "opening";
         this._sActiveMdPanelLabel = "";
+
+        // Column Settings / Select Layout for the Opening balance "Line
+        // items" grid table (masterDetailTable) — same picker+reorder+save
+        // flow as any backend-backed layout feature, just backed by
+        // localStorage instead of an OData LayoutSet (this app has none).
+        this._oiColumnMap = [
+          { id: "oiCol1", label: "Document" },
+          { id: "oiCol2", label: "Date" },
+          { id: "oiCol3", label: "Type" },
+          { id: "oiCol4", label: "Amount" },
+          { id: "oiCol5", label: "Status" },
+        ];
+        this.getView().setModel(
+          new JSONModel({ columns: this._oiColumnMap }),
+          "oiColumnModel",
+        );
+        this._oiSavedLayouts = [];
+        this._loadOpenItemsSavedLayouts();
+        this._applyDefaultOpenItemsLayout();
 
         this.onSearch();
       },
@@ -901,6 +922,548 @@ sap.ui.define(
         if (this._oOpenItemsDetailDialog) {
           this._oOpenItemsDetailDialog.close();
         }
+      },
+
+      // ═══════════════════════════════════════════════════════════════════
+      // Column Settings / Select Layout — shared across EVERY master-detail
+      // line-items grid (Opening balance/masterDetailTable, Transactions,
+      // Advance balance, Debit notes, Payments): all five tables render the
+      // same 5-column schema (Document/Date/Type/Amount/Status — oiCol1..5,
+      // via bindings recon>Belnr/Budat/Blart/NetAmt/Augbl that already exist
+      // on every one of those row shapes), so one Column Settings dialog and
+      // one Select Layout dialog can drive all five at once. Applying or
+      // saving a layout broadcasts the same column order/visibility to every
+      // table in OI_TABLE_IDS in one go — that's the "same layout for all"
+      // behavior. (Advance balance has no clearing document and Debit notes
+      // has neither a posting date nor a clearing document, so Status/Date
+      // just render blank/"Open" defaults there if included — still a
+      // consistent column set, just not always meaningful data.)
+      //
+      // Same picker → apply → offer-to-save flow as any backend-backed
+      // layout feature; this persists to localStorage (key
+      // OI_LAYOUTS_STORAGE_KEY) since there's no LayoutSet OData service in
+      // this app.
+      // ═══════════════════════════════════════════════════════════════════
+
+      OI_TABLE_IDS: [
+        "masterDetailTable",
+        "transactionsTable",
+        "advanceTable",
+        "debitNotesTable",
+        "paymentsTable",
+      ],
+
+      /** Opens the Column Settings dialog, pre-selecting whichever columns are currently visible on the table whose button was pressed. */
+      onLineItemsColumnSettingsPress: function (oEvent) {
+        var oView = this.getView();
+        var that = this;
+        this._sActiveOiTableId =
+          oEvent.getSource().data("tableId") || "masterDetailTable";
+
+        if (!this._oOiColumnDialog) {
+          Fragment.load({
+            id: oView.getId(),
+            name: "supplieropenitems.view.fragment.OpenItemsColumnSettings",
+            controller: this,
+          }).then(function (oDialog) {
+            that._oOiColumnDialog = oDialog;
+            oView.addDependent(oDialog);
+            that._preselectOpenItemsColumnList();
+            oDialog.open();
+          });
+        } else {
+          this._preselectOpenItemsColumnList();
+          this._oOiColumnDialog.open();
+        }
+      },
+
+      /** Ticks the column-list items matching the columns visible right now on whichever table triggered the dialog (_sActiveOiTableId). */
+      _preselectOpenItemsColumnList: function () {
+        var oTable = this.byId(this._sActiveOiTableId || "masterDetailTable");
+        var oList = this.byId("oiColumnSelectorList");
+        if (!oTable || !oList) return;
+
+        var aVisibleKeys = oTable.getColumns().map(function (oColumn) {
+          return oColumn.data("colId");
+        });
+
+        oList.getItems().forEach(function (oItem) {
+          var oCustomData = oItem
+            .getCustomData()
+            .find(function (cd) {
+              return cd.getKey() === "key";
+            });
+          var sColId = oCustomData && oCustomData.getValue();
+          oItem.setSelected(aVisibleKeys.includes(sColId));
+        });
+      },
+
+      onOpenItemsColumnSearch: function (oEvent) {
+        var sQuery = (oEvent.getParameter("newValue") || "").toLowerCase();
+        var oList = this.byId("oiColumnSelectorList");
+        oList.getItems().forEach(function (oItem) {
+          var sText = oItem.getContent()[0].getItems()[0].getText().toLowerCase();
+          oItem.setVisible(sText.includes(sQuery));
+        });
+      },
+
+      onOpenItemsDropColumnOrder: function (oEvent) {
+        var oDraggedItem = oEvent.getParameter("draggedControl");
+        var oDroppedItem = oEvent.getParameter("droppedControl");
+        var sDropPosition = oEvent.getParameter("dropPosition");
+        var oList = this.byId("oiColumnSelectorList");
+
+        var iDragIndex = oList.indexOfItem(oDraggedItem);
+        var iDropIndex = oList.indexOfItem(oDroppedItem);
+        if (iDragIndex < 0 || iDropIndex < 0) return;
+
+        oList.removeItem(oDraggedItem);
+        var iNewIndex = sDropPosition === "After" ? iDropIndex + 1 : iDropIndex;
+        if (iDragIndex < iNewIndex) iNewIndex -= 1;
+        oList.insertItem(oDraggedItem, iNewIndex);
+      },
+
+      onOpenItemsMoveItemUp: function (oEvent) {
+        var oList = this.byId("oiColumnSelectorList");
+        var oItem = oEvent.getSource().getParent().getParent().getParent();
+        var iIndex = oList.indexOfItem(oItem);
+        if (iIndex > 0) {
+          oList.removeItem(oItem);
+          oList.insertItem(oItem, iIndex - 1);
+        }
+      },
+
+      onOpenItemsMoveItemDown: function (oEvent) {
+        var oList = this.byId("oiColumnSelectorList");
+        var oItem = oEvent.getSource().getParent().getParent().getParent();
+        var iIndex = oList.indexOfItem(oItem);
+        if (iIndex < oList.getItems().length - 1) {
+          oList.removeItem(oItem);
+          oList.insertItem(oItem, iIndex + 1);
+        }
+      },
+
+      onOpenItemsMoveItemFirst: function (oEvent) {
+        var oList = this.byId("oiColumnSelectorList");
+        var oItem = oEvent.getSource().getParent().getParent().getParent();
+        if (oList.indexOfItem(oItem) > 0) {
+          oList.removeItem(oItem);
+          oList.insertItem(oItem, 0);
+        }
+      },
+
+      onOpenItemsMoveItemLast: function (oEvent) {
+        var oList = this.byId("oiColumnSelectorList");
+        var oItem = oEvent.getSource().getParent().getParent().getParent();
+        var iIndex = oList.indexOfItem(oItem);
+        if (iIndex < oList.getItems().length - 1) {
+          oList.removeItem(oItem);
+          oList.insertItem(oItem, oList.getItems().length);
+        }
+      },
+
+      /** Reads the checked items off oiColumnSelectorList in their current visual order — [{key, title}]. */
+      _getOpenItemsSelectedColumns: function () {
+        var oList = this.byId("oiColumnSelectorList");
+        return oList
+          .getSelectedItems()
+          .map(function (oItem) {
+            var oCustomData = oItem
+              .getCustomData()
+              .find(function (cd) {
+                return cd.getKey() === "key";
+              });
+            return {
+              key: oCustomData ? oCustomData.getValue() : null,
+              title: oItem.getContent()[0].getItems()[0].getText(),
+            };
+          })
+          .filter(function (o) {
+            return o.key !== null;
+          });
+      },
+
+      onOpenItemsColumnSettingsConfirm: function () {
+        var aSelected = this._getOpenItemsSelectedColumns();
+        var aSelectedKeys = aSelected.map(function (o) {
+          return o.key;
+        });
+
+        if (aSelectedKeys.length === 0) {
+          MessageToast.show("Please select at least one column.");
+          return;
+        }
+
+        this._applyColumnSelectionToAllTables(aSelectedKeys);
+
+        if (this._oOiColumnDialog) {
+          this._oOiColumnDialog.close();
+        }
+
+        this._showSaveOpenItemsLayoutDialog(aSelectedKeys);
+      },
+
+      onOpenItemsColumnSettingsCancel: function () {
+        if (this._oOiColumnDialog) {
+          this._oOiColumnDialog.close();
+        }
+      },
+
+      /** column id -> display label, single source of truth shared by the column dialog and rebuilt headers. */
+      _getOpenItemsColumnLabelById: function (sColId) {
+        var oCol = this._oiColumnMap.find(function (o) {
+          return o.id === sColId;
+        });
+        return oCol ? oCol.label : sColId;
+      },
+
+      /** column id -> the actual cell control template used inside masterDetailTable — mirrors the fixed columns further up this file. */
+      _getOpenItemsCellByColumnId: function (sColId) {
+        switch (sColId) {
+          case "oiCol1": // Document
+            return new sap.m.Text({ text: "{recon>Belnr}" });
+          case "oiCol2": // Date
+            return new sap.m.Text({
+              text: {
+                path: "recon>Budat",
+                formatter: this.formatOpenItemDate.bind(this),
+              },
+            });
+          case "oiCol3": // Type
+            return new sap.m.Text({ text: "{recon>Blart}", wrapping: false });
+          case "oiCol4": // Amount
+            return new sap.m.ObjectNumber({
+              number: {
+                path: "recon>NetAmt",
+                formatter: this.formatAmount.bind(this),
+              },
+            });
+          case "oiCol5": // Status
+            return new sap.m.ObjectStatus({
+              text: {
+                path: "recon>Augbl",
+                formatter: this.formatOpenItemStatus.bind(this),
+              },
+              state: {
+                path: "recon>Augbl",
+                formatter: this.formatOpenItemStatusState.bind(this),
+              },
+            });
+          default:
+            return new sap.m.Text({ text: "" });
+        }
+      },
+
+      /**
+       * Rebuilds ONE table's columns (sap.ui.table.Table, NOT
+       * sap.ui.table.TreeTable — a plain grid table) from a selected+ordered
+       * list of column ids: destroys every column and re-adds them in that
+       * order, each carrying its own bound cell template. Rows stay bound to
+       * whatever that table's own "rows" aggregation already points at
+       * (recon>/openItems, recon>/transactionItems, …) throughout — only the
+       * columns aggregation changes.
+       *
+       * Widths are split evenly as percentages (100 / column count) rather
+       * than fixed rem values, so the table's columns always stretch to
+       * fill the full width of its containing HBox/VBox — whether that's 3
+       * columns or 5 — instead of leaving a blank gap on wide screens or
+       * needing a horizontal scrollbar on narrow ones.
+       */
+      _applyOpenItemsColumnSelection: function (sTableId, aSelectedColumnIds) {
+        var oTable = this.byId(sTableId);
+        if (!oTable) return;
+        var that = this;
+        var sWidth = (100 / aSelectedColumnIds.length).toFixed(2) + "%";
+
+        oTable.destroyColumns();
+
+        aSelectedColumnIds.forEach(function (sColId) {
+          var oColumn = new sap.ui.table.Column({
+            width: sWidth,
+            hAlign: sColId === "oiCol4" || sColId === "oiCol5" ? "End" : "Begin",
+            label: new sap.m.Label({
+              text: that._getOpenItemsColumnLabelById(sColId),
+              design: "Bold",
+            }),
+            template: that._getOpenItemsCellByColumnId(sColId),
+          });
+          oColumn.data("colId", sColId);
+          oTable.addColumn(oColumn);
+        });
+      },
+
+      /**
+       * Broadcasts a column selection+order to EVERY master-detail line-items
+       * table (OI_TABLE_IDS) — this is what makes "select/save a layout"
+       * apply the same layout everywhere instead of just the panel the
+       * dialog happened to be opened from.
+       */
+      _applyColumnSelectionToAllTables: function (aSelectedColumnIds) {
+        var that = this;
+        this.OI_TABLE_IDS.forEach(function (sTableId) {
+          that._applyOpenItemsColumnSelection(sTableId, aSelectedColumnIds);
+        });
+      },
+
+      // ─── Select Layout (localStorage-backed) ─────────────────────────────
+
+      OI_LAYOUTS_STORAGE_KEY: "mdOpenItemsSavedLayouts",
+
+      /** Reads saved layouts [{LayoutName, Columns, Default}] from localStorage into oiLayoutModel. */
+      _loadOpenItemsSavedLayouts: function () {
+        var aLayouts = [];
+        try {
+          aLayouts =
+            JSON.parse(localStorage.getItem(this.OI_LAYOUTS_STORAGE_KEY)) ||
+            [];
+        } catch (e) {
+          aLayouts = [];
+        }
+        this._oiSavedLayouts = aLayouts;
+        this.getView().setModel(
+          new JSONModel({ layouts: aLayouts }),
+          "oiLayoutModel",
+        );
+      },
+
+      _saveOpenItemsLayoutsToStorage: function () {
+        localStorage.setItem(
+          this.OI_LAYOUTS_STORAGE_KEY,
+          JSON.stringify(this._oiSavedLayouts),
+        );
+      },
+
+      /** Applies whichever saved layout has Default:true, if any, to every table — called once on page load. */
+      _applyDefaultOpenItemsLayout: function () {
+        var oDefault = (this._oiSavedLayouts || []).find(function (o) {
+          return o.Default;
+        });
+        if (!oDefault) return;
+        this._applyColumnSelectionToAllTables(oDefault.Columns.split(","));
+      },
+
+      onLineItemsLayoutDialogPress: function (oEvent) {
+        var oView = this.getView();
+        var that = this;
+        this._sActiveOiTableId =
+          oEvent.getSource().data("tableId") || "masterDetailTable";
+
+        if (!this._oOiLayoutDialog) {
+          Fragment.load({
+            id: oView.getId(),
+            name: "supplieropenitems.view.fragment.OpenItemsLayoutDialog",
+            controller: this,
+          }).then(function (oDialog) {
+            that._oOiLayoutDialog = oDialog;
+            oView.addDependent(oDialog);
+            oDialog.open();
+          });
+        } else {
+          this._oOiLayoutDialog.open();
+        }
+      },
+
+      onOpenItemsLayoutSelectionChange: function (oEvent) {
+        var oSelectedItem = oEvent.getParameter("listItem");
+        var oCtx = oSelectedItem.getBindingContext("oiLayoutModel");
+        var aLayouts = this.getView()
+          .getModel("oiLayoutModel")
+          .getProperty("/layouts");
+
+        aLayouts.forEach(function (o) {
+          o.selected = false;
+        });
+        oCtx.getObject().selected = true;
+
+        this.getView().getModel("oiLayoutModel").refresh(true);
+      },
+
+      onOpenItemsApplyLayout: function () {
+        var aLayouts = this.getView()
+          .getModel("oiLayoutModel")
+          .getProperty("/layouts");
+        var bSetAsDefault = this.byId("oiSetDefaultCheckbox").getSelected();
+        var oSelected = aLayouts.find(function (o) {
+          return o.selected;
+        });
+
+        if (!oSelected) {
+          MessageToast.show("Please select a layout to apply.");
+          return;
+        }
+
+        this._applyColumnSelectionToAllTables(oSelected.Columns.split(","));
+        MessageToast.show(
+          "Applied layout to all sections: " + oSelected.LayoutName,
+        );
+
+        if (bSetAsDefault) {
+          this._oiSavedLayouts.forEach(function (o) {
+            o.Default = o.LayoutName === oSelected.LayoutName;
+          });
+          this._saveOpenItemsLayoutsToStorage();
+          MessageToast.show("Layout marked as default.");
+        }
+
+        this.byId("oiSetDefaultCheckbox").setSelected(false);
+        this._oOiLayoutDialog.close();
+      },
+
+      onOpenItemsCancelLayout: function () {
+        this.byId("oiSetDefaultCheckbox").setSelected(false);
+        this._oOiLayoutDialog.close();
+      },
+
+      onOpenItemsDeleteLayout: function (oEvent) {
+        var oContext = oEvent.getSource().getBindingContext("oiLayoutModel");
+        var sLayoutName = oContext.getObject().LayoutName;
+
+        this._oiSavedLayouts = this._oiSavedLayouts.filter(function (o) {
+          return o.LayoutName !== sLayoutName;
+        });
+        this._saveOpenItemsLayoutsToStorage();
+        this.getView()
+          .getModel("oiLayoutModel")
+          .setProperty("/layouts", this._oiSavedLayouts);
+        MessageToast.show("Layout deleted.");
+      },
+
+      /** Formatter for the read-only "Default?" checkbox in the layout table. */
+      isOpenItemsDefaultChecked: function (vValue) {
+        return !!vValue;
+      },
+
+      /**
+       * Prompts to save the just-applied column selection as a named,
+       * reusable layout — same "Do you want to save this Layout?" step the
+       * reference app shows right after Column Settings is confirmed.
+       */
+      _showSaveOpenItemsLayoutDialog: function (aSelectedKeys) {
+        var that = this;
+
+        if (!this._oOiSaveLayoutDialog) {
+          this._oOiSaveLayoutDialog = new sap.m.Dialog({
+            title: "Save this column layout?",
+            contentWidth: "22rem",
+            content: [
+              new sap.m.VBox({
+                items: [
+                  new sap.m.HBox({
+                    alignItems: "Center",
+                    items: [
+                      new sap.m.Label({
+                        text: "Layout Name:",
+                        labelFor: "oiLayoutNameInput",
+                        width: "7rem",
+                      }),
+                      new sap.m.Input("oiLayoutNameInput", {
+                        width: "100%",
+                        placeholder: "Enter layout name",
+                      }),
+                    ],
+                  }).addStyleClass("sapUiSmallMarginBottom"),
+                  new sap.m.HBox({
+                    alignItems: "Center",
+                    items: [
+                      new sap.m.Label({
+                        text: "Make Default:",
+                        labelFor: "oiDefaultLayoutCheckbox",
+                        width: "7rem",
+                      }),
+                      new sap.m.CheckBox("oiDefaultLayoutCheckbox", {
+                        selected: false,
+                      }),
+                    ],
+                  }),
+                ],
+              }).addStyleClass("sapUiContentPadding"),
+            ],
+            beginButton: new sap.m.Button({
+              text: "Save",
+              type: "Accept",
+              press: function () {
+                var sName = sap.ui
+                  .getCore()
+                  .byId("oiLayoutNameInput")
+                  .getValue()
+                  .trim();
+                var bDefault = sap.ui
+                  .getCore()
+                  .byId("oiDefaultLayoutCheckbox")
+                  .getSelected();
+
+                if (!sName) {
+                  MessageToast.show("Please enter a layout name.");
+                  return;
+                }
+
+                var sNameUpper = sName.toUpperCase();
+                var iExistingIndex = that._oiSavedLayouts.findIndex(
+                  function (o) {
+                    return o.LayoutName.toUpperCase() === sNameUpper;
+                  },
+                );
+
+                var fnSave = function () {
+                  if (bDefault) {
+                    that._oiSavedLayouts.forEach(function (o) {
+                      o.Default = false;
+                    });
+                  }
+                  var oPayload = {
+                    LayoutName: sNameUpper,
+                    Columns: aSelectedKeys.join(","),
+                    Default: bDefault,
+                  };
+                  if (iExistingIndex > -1) {
+                    that._oiSavedLayouts[iExistingIndex] = oPayload;
+                    MessageToast.show("Layout updated: " + sNameUpper);
+                  } else {
+                    that._oiSavedLayouts.push(oPayload);
+                    MessageToast.show("Layout saved: " + sNameUpper);
+                  }
+                  that._saveOpenItemsLayoutsToStorage();
+                  that.getView()
+                    .getModel("oiLayoutModel")
+                    .setProperty("/layouts", that._oiSavedLayouts);
+                  that._oOiSaveLayoutDialog.close();
+                };
+
+                if (iExistingIndex > -1) {
+                  MessageBox.confirm(
+                    "A layout named \"" +
+                      sNameUpper +
+                      "\" already exists. Overwrite it?",
+                    {
+                      title: "Confirm Overwrite",
+                      actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+                      emphasizedAction: MessageBox.Action.OK,
+                      onClose: function (sAction) {
+                        if (sAction === MessageBox.Action.OK) fnSave();
+                      },
+                    },
+                  );
+                } else {
+                  fnSave();
+                }
+              },
+            }),
+            endButton: new sap.m.Button({
+              text: "No, thanks",
+              type: "Reject",
+              press: function () {
+                that._oOiSaveLayoutDialog.close();
+              },
+            }),
+            afterClose: function () {
+              sap.ui.getCore().byId("oiLayoutNameInput").setValue("");
+              sap.ui.getCore().byId("oiDefaultLayoutCheckbox").setSelected(false);
+            },
+          });
+          this.getView().addDependent(this._oOiSaveLayoutDialog);
+        }
+
+        this._oOiSaveLayoutDialog.open();
       },
 
       /**
