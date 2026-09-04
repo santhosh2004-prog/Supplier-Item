@@ -1,0 +1,93 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <ResponsivePopover
+        id="modulesPopover"
+        placement="Bottom"
+        showHeader="true"
+        title="Modules"
+        contentWidth="20rem"
+        class="modulesPopover"
+    >
+        <List
+            showSeparators="Inner"
+            class="modulesList"
+        >
+            <GroupHeaderListItem title="Finance " />
+            <StandardListItem
+                title="Opening balance"
+                info="₹12.4L"
+                type="Active"
+                press=".onOpeningBalancePress"
+            />
+            <StandardListItem
+                title="Transactions"
+                info="47"
+                type="Active"
+                press=".onTransactionsPress"
+            />
+            <StandardListItem
+                title="Advance balance"
+                info="₹3.8L"
+            />
+            <StandardListItem
+                title="Debit notes"
+                info="₹1.2L"
+            />
+            <StandardListItem
+                title="Credit notes"
+                info="₹0.8L"
+            />
+            <StandardListItem
+                title="Payments"
+                type="Active"
+                press=".onPaymentsRowPress"
+            />
+
+            <GroupHeaderListItem title="Materials (MM) " />
+            <StandardListItem
+                title="Pending invoices"
+                info="₹14.2L"
+            />
+            <StandardListItem
+                title="Total PO value"
+                info="₹92.1L"
+            />
+            <StandardListItem
+                title="Pending PO"
+                info="₹13.9L"
+            />
+            <StandardListItem
+                title="Material receipts"
+                info="1,240"
+            />
+            <StandardListItem
+                title="Accepted qty"
+                info="1,168"
+            />
+            <StandardListItem
+                title="Rejected qty"
+                info="42"
+            />
+            <StandardListItem
+                title="AUD qty"
+                info="30"
+            />
+            <StandardListItem
+                title="Share of business"
+                info="34%"
+            />
+
+            <GroupHeaderListItem title="Quality (QM)" />
+            <StandardListItem
+                title="Lots received"
+                info="156"
+            />
+            <StandardListItem
+                title="Lots accepted"
+                info="142"
+            />
+        </List>
+    </ResponsivePopover>
+</core:FragmentDefinition>

@@ -1,0 +1,198 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Dialog
+        id="openItemsDetailDialog"
+        title="{recon>/filteredOpenItemsTitle}"
+        contentWidth="100%"
+        contentHeight="100%"
+        stretch="true"
+        verticalScrolling="true"
+    >
+        <content>
+            <Toolbar class="mdLineItemsToolBtns">
+                <SearchField
+                    id="openItemsDetailSearchField"
+                    placeholder="Filter documents"
+                    width="16rem"
+                    liveChange=".onOpenItemsDetailSearch"
+                />
+            </Toolbar>
+            <Table
+                id="openItemsDetailTable"
+                items="{recon>/filteredOpenItems}"
+                noDataText="No documents found."
+                sticky="ColumnHeaders"
+                fixedLayout="false"
+                popinLayout="GridSmall"
+            >
+                <columns>
+                    <Column width="8rem">
+                        <HBox alignItems="Center">
+                            <Label text="Doc No" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Belnr" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column width="5rem">
+                        <HBox alignItems="Center">
+                            <Label text="Doc Type" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Blart" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column width="7rem">
+                        <HBox alignItems="Center">
+                            <Label text="Posting Date" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Budat" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="7rem"
+                        minScreenWidth="Large"
+                        demandPopin="true"
+                        popinDisplay="Inline"
+                    >
+                        <HBox alignItems="Center">
+                            <Label text="Doc Date" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Bldat" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="7rem"
+                        minScreenWidth="Large"
+                        demandPopin="true"
+                        popinDisplay="Inline"
+                    >
+                        <HBox alignItems="Center">
+                            <Label text="Vendor" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Lifnr" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="4rem"
+                        minScreenWidth="XLarge"
+                        demandPopin="true"
+                        popinDisplay="Inline"
+                    >
+                        <HBox alignItems="Center">
+                            <Label text="Sp.GL" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Umskz" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="8rem"
+                        minScreenWidth="XLarge"
+                        demandPopin="true"
+                        popinDisplay="Inline"
+                    >
+                        <HBox alignItems="Center">
+                            <Label text="Clearing Doc" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Augbl" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="8rem"
+                        minScreenWidth="XLarge"
+                        demandPopin="true"
+                        popinDisplay="Inline"
+                    >
+                        <HBox alignItems="Center">
+                            <Label text="PO Number" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="Ebeln" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="9rem"
+                        hAlign="End"
+                    >
+                        <HBox alignItems="Center" justifyContent="End">
+                            <Label text="Invoice Amt" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="InvAmt" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="9rem"
+                        hAlign="End"
+                    >
+                        <HBox alignItems="Center" justifyContent="End">
+                            <Label text="Advance Amt" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="AdvAmt" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                    <Column
+                        width="9rem"
+                        hAlign="End"
+                    >
+                        <HBox alignItems="Center" justifyContent="End">
+                            <Label text="Net Amt" design="Bold" />
+                            <Button icon="sap-icon://sort" type="Transparent" tooltip="Sort" press=".onOpenItemsDetailSort">
+                                <customData><core:CustomData key="field" value="NetAmt" /></customData>
+                            </Button>
+                        </HBox>
+                    </Column>
+                </columns>
+                <items>
+                    <ColumnListItem>
+                        <cells>
+                            <Text text="{recon>Belnr}" />
+                            <Text text="{recon>Blart}" />
+                            <Text
+                                text="{
+                                    path: 'recon>Budat',
+                                    type: 'sap.ui.model.type.Date',
+                                    formatOptions: { pattern: 'dd.MM.yyyy' }
+                                }"
+                            />
+                            <Text
+                                text="{
+                                    path: 'recon>Bldat',
+                                    type: 'sap.ui.model.type.Date',
+                                    formatOptions: { pattern: 'dd.MM.yyyy' }
+                                }"
+                            />
+                            <Text text="{recon>Lifnr}" />
+                            <Text text="{recon>Umskz}" />
+                            <Text text="{recon>Augbl}" />
+                            <Text text="{recon>Ebeln}" />
+                            <ObjectNumber
+                                number="{ path: 'recon>InvAmt', formatter: '.formatAmount' }"
+                            />
+                            <ObjectNumber
+                                number="{ path: 'recon>AdvAmt', formatter: '.formatAmount' }"
+                            />
+                            <ObjectNumber
+                                number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }"
+                            />
+                        </cells>
+                    </ColumnListItem>
+                </items>
+            </Table>
+        </content>
+        <beginButton>
+            <Button
+                text="Close"
+                press=".onCloseOpenItemsDetail"
+            />
+        </beginButton>
+    </Dialog>
+</core:FragmentDefinition>

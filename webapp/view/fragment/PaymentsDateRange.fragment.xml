@@ -1,0 +1,49 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Dialog
+        id="paymentsDateRangeDialog"
+        title="Payments — Select Period"
+        contentWidth="22rem"
+    >
+        <content>
+            <VBox class="sapUiSmallMargin">
+                <Label
+                    text="From Date"
+                    labelFor="paymentsFromDate"
+                    required="true"
+                />
+                <DatePicker
+                    id="paymentsFromDate"
+                    valueFormat="yyyy-MM-dd"
+                    displayFormat="dd.MM.yyyy"
+                    class="sapUiSmallMarginBottom"
+                />
+                <Label
+                    text="To Date"
+                    labelFor="paymentsToDate"
+                    required="true"
+                />
+                <DatePicker
+                    id="paymentsToDate"
+                    valueFormat="yyyy-MM-dd"
+                    displayFormat="dd.MM.yyyy"
+                />
+            </VBox>
+        </content>
+        <beginButton>
+            <Button
+                text="Go"
+                type="Emphasized"
+                press=".onPaymentsDateRangeConfirm"
+            />
+        </beginButton>
+        <endButton>
+            <Button
+                text="Cancel"
+                press=".onPaymentsDialogClose"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

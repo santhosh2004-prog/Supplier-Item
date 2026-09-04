@@ -1,0 +1,16 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <SelectDialog
+        id="supplierDialog"
+        title="Select Supplier"
+        search=".onSupplierSearch"
+        confirm=".onSupplierConfirm"
+        cancel=".onSupplierDialogClose"
+        noDataText="No suppliers found"
+        growing="true"
+        growingThreshold="100"
+        rememberSelections="false"
+    />
+</core:FragmentDefinition>

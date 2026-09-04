@@ -1,0 +1,49 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <VBox
+        visible="{= !${recon>/busy} &amp;&amp; ${recon>/count} > 0}"
+        class="dashboardCard"
+    >
+        <HBox
+            alignItems="Center"
+            justifyContent="SpaceBetween"
+            class="sapUiTinyMarginBottom"
+        >
+            <HBox alignItems="Center">
+                <core:Icon
+                    src="sap-icon://pie-chart"
+                    class="donutHeaderIcon"
+                />
+                <Text
+                    text="Net Amount Distribution"
+                    class="dashboardCardTitle sapUiTinyMarginBegin"
+                />
+            </HBox>
+            <core:Icon
+                src="sap-icon://vertical-grip"
+                class="donutMenuDots"
+            />
+        </HBox>
+        <VBox class="donutHeaderDivider" />
+
+        <!-- SVG donut, drawn/updated via _renderDonutSvg() in the controller -->
+        <core:HTML
+            id="donutSvgHtml"
+            content="&lt;div id='donutSvgContainer' class='donutSvgContainer'&gt;&lt;/div&gt;"
+            afterRendering=".onDonutHtmlRendered"
+        />
+
+        <!-- Legend grid: 3 columns -->
+        <core:HTML
+            id="donutLegendHtml"
+            content="&lt;div id='donutLegendContainer' class='donutLegendGrid'&gt;&lt;/div&gt;"
+        />
+
+        <Text
+            text="Note: Negative values represent returns or deductions"
+            class="donutFootnote"
+        />
+    </VBox>
+</core:FragmentDefinition>

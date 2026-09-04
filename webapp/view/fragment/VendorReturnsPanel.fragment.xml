@@ -1,0 +1,266 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ Vendor returns panel : shown in place of Line items after the
+         "Vendor returns" module row (nested under Material receipts) is
+         pressed. Calls VendorReturnsSet for the current Company Code/
+         Supplier over the searched From/To Date range (Fromdate/Todate —
+         VendorReturnsSet's own filter names, same Bukrs+Lifnr filter shape
+         as MatReceiptSet), same stat-tile + table layout as Material
+         receipts — no bar chart (goods returns have no value field to
+         chart or sum, only a quantity). Note VendorReturnsSet's posting
+         date field is "BudatMkpf" (no underscore before Mkpf), unlike
+         MatReceiptSet's "Budat_mkpf". ═══ -->
+    <VBox visible="{recon>/mdShowVendorReturns}" class="mdPanelAnimate">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButtonVendorReturns"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+            <!-- <VBox
+                visible="{= ${recon>/vendorReturnsBusy} || ${recon>/vendorReturnsItems}.length > 0 }"
+                class="mdStatTile mdStatTileNeutral"
+            >
+                <Text
+                    text="Vendor Returns"
+                    class="panelSubTitle mdNoMargin textLeft"
+                />
+            </VBox> -->
+            <VBox
+                visible="{= ${recon>/vendorReturnsBusy} || ${recon>/vendorReturnsItems}.length > 0 }"
+                class="mdStatTile mdStatTileBlue"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Total Return Qty :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{ path: 'recon>/vendorReturnsTotal', formatter: '.formatBalanceValue' }"
+                            class="panelSubValue mdNoMargin openingBalanceValue"
+                        />
+                    </HBox>
+                    <core:Icon
+                        src="sap-icon://trend-up"
+                        class="mdStatIcon mdStatIconBlue"
+                    />
+                </HBox>
+            </VBox>
+            <VBox
+                visible="{= ${recon>/vendorReturnsBusy} || ${recon>/vendorReturnsItems}.length > 0 }"
+                class="mdStatTile mdStatTileGreen"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Return Items :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{= ${recon>/vendorReturnsItems}.length }"
+                            class="panelSubValue mdNoMargin openingBalanceValue"
+                        />
+                    </HBox>
+                    <core:Icon
+                        src="sap-icon://list"
+                        class="mdStatIcon mdStatIconGreen"
+                    />
+                </HBox>
+            </VBox>
+                        <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="vendorReturnsTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="vendorReturnsTable" />
+                    </customData>
+                </Button>
+            </HBox>
+          
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/vendorReturnsBusy} &amp;&amp; ${recon>/vendorReturnsItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Vendor Returns Data"
+            description="{= 'No vendor returns found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+        <!-- <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+            visible="{= ${recon>/vendorReturnsBusy} || ${recon>/vendorReturnsItems}.length > 0 }"
+        >
+            <Text
+                text="{= 'Vendor returns (' + ${recon>/vendorReturnsItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="vendorReturnsTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="vendorReturnsTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </HBox> -->
+
+        <table:Table
+            id="vendorReturnsTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/vendorReturnsItems}"
+            busy="{recon>/vendorReturnsBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/vendorReturnsBusy} || ${recon>/vendorReturnsItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="13"
+            noData="No vendor returns found."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <table:Column width="16%" sortProperty="Mblnr" filterProperty="Mblnr">
+                    <table:label>
+                        <Label text="Material Doc." design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Mblnr}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="14%" sortProperty="BudatMkpf" filterProperty="BudatMkpf">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>BudatMkpf', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="12%" sortProperty="Werks" filterProperty="Werks">
+                    <table:label>
+                        <Label text="Plant" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Werks}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="16%" sortProperty="Ebeln" filterProperty="Ebeln">
+                    <table:label>
+                        <Label text="PO Number" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Ebeln}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="14%" sortProperty="Matnr" filterProperty="Matnr">
+                    <table:label>
+                        <Label text="Material" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Matnr}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="10%" sortProperty="Bwart" filterProperty="Bwart">
+                    <table:label>
+                        <Label text="Mvt Type" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Bwart}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol6" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="18%"
+                    hAlign="End"
+                    sortProperty="Menge"
+                    filterProperty="Menge"
+                >
+                    <table:label>
+                        <Label text="Quantity" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{= ${recon>Menge} + ' ' + ${recon>Meins} }" textAlign="End" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol7" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

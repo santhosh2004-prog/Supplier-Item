@@ -1,0 +1,264 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ Pending invoices panel : shown in place of Line items after the "Pending invoices"
+         Materials (MM) row is pressed. Same stat-tiles + table + Column
+         Settings/Select Layout/Total-row shape as every other master-detail
+         panel (see TransactionsPanel.fragment.xml), sourced from
+         PendInvValuesSet instead. ═══ -->
+    <VBox visible="{recon>/mdShowPendingInvoices}" class="mdPanelAnimate">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButtonPendingInvoices"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+            <!-- <VBox
+                visible="{= ${recon>/pendingInvoicesBusy} || ${recon>/pendingInvoicesItems}.length > 0 }"
+                class="mdStatTile mdStatTileNeutral"
+            >
+                <Text
+                    text="Pending Invoices"
+                    class="panelSubTitle mdNoMargin textLeft"
+                />
+            </VBox> -->
+            <VBox
+                visible="{= ${recon>/pendingInvoicesBusy} || ${recon>/pendingInvoicesItems}.length > 0 }"
+                class="mdStatTile mdStatTileBlue"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Pending Invoice Amount :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{ path: 'recon>/pendingInvoicesTotal', formatter: '.formatBalanceValue' }"
+                            class="panelSubValue mdNoMargin openingBalanceValue"
+                        />
+                    </HBox>
+                    <core:Icon
+                        src="sap-icon://wallet"
+                        class="mdStatIcon mdStatIconBlue"
+                    />
+                </HBox>
+            </VBox>
+            <VBox
+                visible="{= ${recon>/pendingInvoicesBusy} || ${recon>/pendingInvoicesItems}.length > 0 }"
+                class="mdStatTile mdStatTileGreen"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Invoices :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{= ${recon>/pendingInvoicesItems}.length }"
+                            class="panelSubValue mdNoMargin openingBalanceValue"
+                        />
+                    </HBox>
+                    <core:Icon
+                        src="sap-icon://list"
+                        class="mdStatIcon mdStatIconGreen"
+                    />
+                </HBox>
+            </VBox>
+            <!-- <HBox class="mdExportBtns">
+                <Button
+                    icon="sap-icon://refresh"
+                    type="Transparent"
+                    tooltip="Refresh"
+                    press=".onRefreshMasterDetail"
+                />
+                <Button
+                    icon="sap-icon://nav-back"
+                    type="Success"
+                    tooltip="Back to Chart"
+                    press=".onBackToChart"
+                />
+            </HBox> -->
+             <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="pendingInvoicesTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="pendingInvoicesTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/pendingInvoicesBusy} &amp;&amp; ${recon>/pendingInvoicesItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Pending Invoices"
+            description="{= 'No pending invoices found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+        <!-- <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+            visible="{= ${recon>/pendingInvoicesBusy} || ${recon>/pendingInvoicesItems}.length > 0 }"
+        >
+            <Text
+                text="{= 'Pending Invoices (' + ${recon>/pendingInvoicesItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="pendingInvoicesTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="pendingInvoicesTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </HBox> -->
+
+        <table:Table
+            id="pendingInvoicesTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/pendingInvoicesItems}"
+            busy="{recon>/pendingInvoicesBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/pendingInvoicesBusy} || ${recon>/pendingInvoicesItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="14"
+            noData="No pending invoices found."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <!-- ═══ customData key="colId" — same shared colId scheme as
+                     masterDetailTable (see OpenItemsPanel.fragment.xml),
+                     so Column Settings / Select Layout can rebuild this
+                     table too, in step with every other panel's table. ═══ -->
+                <table:Column width="8rem" sortProperty="Belnr" filterProperty="Belnr">
+                    <table:label>
+                        <Label text="Document" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Belnr}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="7rem" sortProperty="Budat" filterProperty="Budat">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="8rem" sortProperty="Blart" filterProperty="Blart">
+                    <table:label>
+                        <Label text="Type" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Blart}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="8rem"
+                    hAlign="End"
+                    sortProperty="NetAmt"
+                    filterProperty="NetAmt"
+                >
+                    <table:label>
+                        <Label text="Amount" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectNumber number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="6rem"
+                    hAlign="End"
+                    sortProperty="Augbl"
+                    filterProperty="Augbl"
+                >
+                    <table:label>
+                        <Label text="Status" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectStatus
+                            text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                            state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                        />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

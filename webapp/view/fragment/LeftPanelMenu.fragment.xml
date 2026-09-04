@@ -1,0 +1,118 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <ResponsivePopover
+        id="modulesPopover"
+        placement="Bottom"
+        showHeader="true"
+        title="Modules"
+        contentWidth="20rem"
+        class="modulesPopover"
+    >
+        <List
+            showSeparators="Inner"
+            class="modulesList"
+        >
+            <GroupHeaderListItem title="Finance " />
+            <StandardListItem
+                title="Opening Balance"
+                info="{ path: 'recon>/openingBalanceValue', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onOpeningBalancePress"
+            />
+            <StandardListItem
+                title="Transactions"
+                info="{ path: 'recon>/transactionsTotal', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onTransactionsPress"
+            />
+            <StandardListItem
+                title="Advance Balance"
+                info="{ path: 'recon>/advanceTotal', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onAdvanceBalancePress"
+            />
+            <StandardListItem
+                title="Debit Notes"
+                info="{ path: 'recon>/debitNotesTotal', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onDebitNotesPress"
+            />
+            <StandardListItem
+                title="Credit Notes"
+                info="0.8L"
+            />
+            <StandardListItem
+                title="Payments"
+                info="{ path: 'recon>/paymentsTotal', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onPaymentsRowPress"
+            />
+
+            <GroupHeaderListItem title="Materials (MM) " />
+            <StandardListItem
+                title="Pending Invoices"
+                info="{ path: 'recon>/pendingInvoicesTotal', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onPendingInvoicesPress"
+            />
+            <StandardListItem
+                title="Total PO value"
+                info="{ path: 'recon>/totalPOTotal', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onTotalPOPress"
+            />
+            <StandardListItem
+                title="Pending PO"
+                info="{ path: 'recon>/pendingPOTotal', formatter: '.formatBalanceValue' }"
+                type="Active"
+                press=".onPendingPOPress"
+            />
+            <StandardListItem
+                title="Material Receipts"
+                info="{ path: 'recon>/matReceiptsTotal', formatter: '.formatAmount' }"
+                type="Active"
+                press=".onMaterialReceiptsPress"
+            />
+            <StandardListItem
+                title="Accepted Qty"
+                info="{ path: 'recon>/acceptedQtyTotal', formatter: '.formatAmount' }"
+                type="Active"
+                press=".onAcceptedQtyPress"
+            />
+            <StandardListItem
+                title="Rejected Qty"
+                info="{ path: 'recon>/rejectedQtyTotal', formatter: '.formatAmount' }"
+                type="Active"
+                press=".onRejectedQtyPress"
+            />
+            <StandardListItem
+                title="AUD qty"
+                info="{ path: 'recon>/audQtyTotal', formatter: '.formatAmount' }"
+                type="Active"
+                press=".onAudQtyPress"
+            />
+            <StandardListItem
+                title="Share of Business"
+                info="{= ${recon>/shareOfBusinessQtyPercent} ? ${recon>/shareOfBusinessQtyPercent} + '%' : '' }"
+                type="Active"
+                press=".onShareOfBusinessPress"
+            />
+
+            <GroupHeaderListItem title="Quality (QM)" />
+            <StandardListItem
+                title="Lots Received"
+                info="{ path: 'recon>/lotsReceivedTotal', formatter: '.formatAmount' }"
+                type="Active"
+                press=".onLotsReceivedPress"
+            />
+            <StandardListItem
+                title="Lots Accepted"
+                info="{ path: 'recon>/lotsAcceptedTotal', formatter: '.formatAmount' }"
+                type="Active"
+                press=".onLotsAcceptedPress"
+            />
+        </List>
+    </ResponsivePopover>
+</core:FragmentDefinition>

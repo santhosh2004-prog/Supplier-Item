@@ -1,0 +1,382 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+
+    <!--
+        ═══ Opening Balance / Open Items panel ═══
+        Single root VBox is used because this fragment is loaded directly
+        into mdRightContentArea.items.
+    ═══
+    -->
+
+    <VBox
+        width="100%"
+        class="openItemsPanelRoot"
+    >
+
+        <!-- ═══ Opening Balance / Open Items summary tiles ═══ -->
+
+        <FlexBox
+            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} }"
+            class="mdStatTilesRow mdPanelAnimate"
+            wrap="Wrap"
+        >
+
+            <!-- Reopen Modules button -->
+
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButton"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+
+
+            <!-- ═══ OPENING BALANCE AMOUNT ═══ -->
+
+            <VBox
+                visible="{= ${recon>/openItemsBusy} || ${recon>/openItems}.length > 0 }"
+                class="mdStatTile mdStatTileBlue"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+
+                    <HBox
+                        alignItems="Center"
+                        class="mdStatTileContent"
+                    >
+
+                        <Text
+                            text="Opening Balance Amount :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+
+                        <Text
+                            text="{ path: 'recon>/openingBalanceValue', formatter: '.formatBalanceValue' }"
+                            class="panelSubValue mdNoMargin openingBalanceValue"
+                        />
+
+                    </HBox>
+
+                </HBox>
+            </VBox>
+
+
+            <!-- ═══ OPEN ITEMS COUNT ═══ -->
+
+            <VBox
+                visible="{= ${recon>/openItemsBusy} || ${recon>/openItems}.length > 0 }"
+                class="mdStatTile mdStatTileGreen"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+
+                    <HBox
+                        alignItems="Center"
+                        class="mdStatTileContent"
+                    >
+
+                        <Text
+                            text="Open Items       :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+
+                        <Text
+                            text="{= ${recon>/openItems}.length }"
+                            class="panelSubTitle mdNoMargin openingBalanceValue"
+                        />
+
+                    </HBox>
+
+                </HBox>
+            </VBox>
+
+
+            <!-- ═══ Column Settings / Layout buttons ═══ -->
+
+            <HBox
+                class="mdExportBtns mdLineItemsToolBtns"
+            >
+
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData
+                            key="tableId"
+                            value="masterDetailTable"
+                        />
+                    </customData>
+                </Button>
+
+
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData
+                            key="tableId"
+                            value="masterDetailTable"
+                        />
+                    </customData>
+                </Button>
+
+            </HBox>
+
+        </FlexBox>
+
+
+        <!-- ═══ Chart + Line Items ═══ -->
+
+        <VBox
+            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} }"
+            class="mdChartAndLineItemsStack"
+        >
+
+            <!-- ═══ No Data ═══ -->
+
+            <IllustratedMessage
+                visible="{= !${recon>/openItemsBusy} &amp;&amp; ${recon>/openItems}.length === 0 }"
+                illustrationType="sapIllus-NoData"
+                illustrationSize="Spot"
+                title="No Opening Balance Data"
+                description="{= 'No opening balance items found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + ' in ' + ${recon>/mdPeriodLabel} + '.' }"
+                class="mdNoDataIllustration"
+            />
+
+
+            <!-- ═══ Chart ═══ -->
+
+            <VBox
+                visible="{= ${recon>/openItemsBusy} || ${recon>/openItems}.length > 0 }"
+                class="mdChartColumn mdChartColumnFullWidth"
+            >
+
+                <Text
+                    text="{= 'Last 12 Months Balance — ' + ${recon>/mdBarChartRangeLabel} }"
+                    class="panelSubTitle"
+                />
+
+                <core:HTML
+                    id="mdBarChartHtml"
+                    content="&lt;div id='mdBarChartContainer' class='mdBarChartRow'&gt;&lt;/div&gt;"
+                    afterRendering=".onMdBarChartHtmlRendered"
+                />
+
+            </VBox>
+
+
+            <!-- ═══ Line Items ═══ -->
+
+            <VBox
+                visible="{= ${recon>/openItemsBusy} || ${recon>/openItems}.length > 0 }"
+                class="mdLineItemsColumn"
+            >
+
+                <VBox
+                    width="100%"
+                    class="openItemsTableContainer"
+                >
+
+                    <HBox
+                        justifyContent="SpaceBetween"
+                        alignItems="Center"
+                        class="mdLineItemsTitleRow"
+                    >
+                    </HBox>
+
+
+                    <!-- ═══ SAP Grid Table ═══ -->
+
+                    <table:Table
+                        id="masterDetailTable"
+                        width="100%"
+                        rowHeight="24"
+                        columnHeaderHeight="26"
+                        rows="{recon>/openItems}"
+                        busy="{recon>/openItemsBusy}"
+                        busyIndicatorDelay="0"
+                        selectionMode="None"
+                        enableColumnReordering="false"
+                        visibleRowCountMode="Auto"
+                        minAutoRowCount="9"
+                        noData="No line items found."
+                        class="mdLineItemsTable mdGridTable"
+                    >
+
+                        <table:columns>
+
+
+                            <!-- Document -->
+
+                            <table:Column width="20%">
+
+                                <table:label>
+                                    <Label
+                                        text="Document"
+                                        design="Bold"
+                                    />
+                                </table:label>
+
+                                <table:template>
+                                    <Text text="{recon>Belnr}" />
+                                </table:template>
+
+                                <table:customData>
+                                    <core:CustomData
+                                        key="colId"
+                                        value="oiCol1"
+                                    />
+                                </table:customData>
+
+                            </table:Column>
+
+
+                            <!-- Date -->
+
+                            <table:Column width="15%">
+
+                                <table:label>
+                                    <Label
+                                        text="Date"
+                                        design="Bold"
+                                    />
+                                </table:label>
+
+                                <table:template>
+                                    <Text
+                                        text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }"
+                                    />
+                                </table:template>
+
+                                <table:customData>
+                                    <core:CustomData
+                                        key="colId"
+                                        value="oiCol2"
+                                    />
+                                </table:customData>
+
+                            </table:Column>
+
+
+                            <!-- Type -->
+
+                            <table:Column width="30%">
+
+                                <table:label>
+                                    <Label
+                                        text="Type"
+                                        design="Bold"
+                                    />
+                                </table:label>
+
+                                <table:template>
+                                    <Text text="{recon>Blart}" />
+                                </table:template>
+
+                                <table:customData>
+                                    <core:CustomData
+                                        key="colId"
+                                        value="oiCol3"
+                                    />
+                                </table:customData>
+
+                            </table:Column>
+
+
+                            <!-- Amount -->
+
+                            <table:Column
+                                width="20%"
+                                hAlign="End"
+                            >
+
+                                <table:label>
+                                    <Label
+                                        text="Amount"
+                                        design="Bold"
+                                    />
+                                </table:label>
+
+                                <table:template>
+                                    <ObjectNumber
+                                        number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }"
+                                    />
+                                </table:template>
+
+                                <table:customData>
+                                    <core:CustomData
+                                        key="colId"
+                                        value="oiCol4"
+                                    />
+                                </table:customData>
+
+                            </table:Column>
+
+
+                            <!-- Status -->
+
+                            <table:Column
+                                width="15%"
+                                hAlign="End"
+                            >
+
+                                <table:label>
+                                    <Label
+                                        text="Status"
+                                        design="Bold"
+                                    />
+                                </table:label>
+
+                                <table:template>
+                                    <ObjectStatus
+                                        text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                                        state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                                    />
+                                </table:template>
+
+                                <table:customData>
+                                    <core:CustomData
+                                        key="colId"
+                                        value="oiCol5"
+                                    />
+                                </table:customData>
+
+                            </table:Column>
+
+
+                        </table:columns>
+
+                    </table:Table>
+
+                </VBox>
+
+            </VBox>
+
+        </VBox>
+
+    </VBox>
+
+</core:FragmentDefinition>

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ui5-mock",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ui5", "serve", "--config", "ui5-mock.yaml"],
+      "port": 8091,
+      "autoPort": true
+    }
+  ]
+}

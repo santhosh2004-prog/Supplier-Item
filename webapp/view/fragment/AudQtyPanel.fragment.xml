@@ -1,0 +1,238 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ AUD qty panel : shown in place of Line items after the
+         "AUD qty" module row (QUALITY (QM) group) is pressed. Calls
+         LotAUDSet for the current Supplier over the searched From/To Date
+         range (Fromdate/Todate — LotAUDSet's own filter names, keyed by
+         Lifnr only, no Bukrs). Three separate stat tiles — identity/Total
+         AUD qty/Total lots AUD — same layout as Accepted qty, no bar
+         chart. ═══ -->
+    <VBox visible="{recon>/mdShowAudQty}" class="mdPanelAnimate">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButtonAudQty"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+           
+            <VBox
+                visible="{= ${recon>/audQtyBusy} || ${recon>/audQtyItems}.length > 0 }"
+                class="mdStatTile mdStatTileBlue"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Total AUD Qty :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{ path: 'recon>/audQtyTotal', formatter: '.formatBalanceValue' }"
+                            class="panelSubValue mdNoMargin openingBalanceValue"
+                        />
+                    </HBox>
+                    <core:Icon
+                        src="sap-icon://trend-up"
+                        class="mdStatIcon mdStatIconBlue"
+                    />
+                </HBox>
+            </VBox>
+            <VBox
+                visible="{= ${recon>/audQtyBusy} || ${recon>/audQtyItems}.length > 0 }"
+                class="mdStatTile mdStatTileGreen"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Total lots AUD :"
+                            class="panelSubTitle mdNoMargin textLeft "
+                        />
+                        <Text
+                            text="{= ${recon>/audQtyItems}.length }"
+                            class="panelSubValue mdNoMargin openingBalanceValue"
+                        />
+                    </HBox>
+                    <core:Icon
+                        src="sap-icon://list"
+                        class="mdStatIcon mdStatIconGreen"
+                    />
+                </HBox>
+            </VBox>
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="audQtyTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="audQtyTable" />
+                    </customData>
+                </Button>
+            </HBox>
+            
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/audQtyBusy} &amp;&amp; ${recon>/audQtyItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No AUD qty data"
+            description="{= 'No AUD lots found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+
+    
+
+        <table:Table
+            id="audQtyTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/audQtyItems}"
+            busy="{recon>/audQtyBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/audQtyBusy} || ${recon>/audQtyItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="13"
+            noData="No AUD lots found."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <table:Column width="16%" sortProperty="Prueflos" filterProperty="Prueflos">
+                    <table:label>
+                        <Label text="Lot Number" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Prueflos}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="10%" sortProperty="Werks" filterProperty="Werks">
+                    <table:label>
+                        <Label text="Plant" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Werks}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="14%" sortProperty="Enstehdat" filterProperty="Enstehdat">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>Enstehdat', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="14%" sortProperty="Matnr" filterProperty="Matnr">
+                    <table:label>
+                        <Label text="Material" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Matnr}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="12%" sortProperty="Charg" filterProperty="Charg">
+                    <table:label>
+                        <Label text="Batch" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Charg}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="10%" sortProperty="Vcode" filterProperty="Vcode">
+                    <table:label>
+                        <Label text="Code" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Vcode}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol6" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="10%"
+                    hAlign="End"
+                    sortProperty="Qkennzahl"
+                    filterProperty="Qkennzahl"
+                >
+                    <table:label>
+                        <Label text="Acceptance %" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Qkennzahl}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol7" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="14%"
+                    hAlign="End"
+                    sortProperty="Losmenge"
+                    filterProperty="Losmenge"
+                >
+                    <table:label>
+                        <Label text="Lot Quantity" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectNumber number="{ path: 'recon>Losmenge', formatter: '.formatAmount' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol8" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

@@ -1,0 +1,218 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ Transactions panel : shown in place of Line items after the "Transactions" module row is pressed.
+         No bar chart here — just the same identity/Balance value/count stat
+         tiles as the Opening balance panel, but sourced from the
+         transactions data, followed directly by the table. ═══ -->
+    <VBox visible="{recon>/mdShowTransactions}" class="mdPanelAnimate">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButtonTransactions"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+            <VBox
+                visible="{= ${recon>/transactionsBusy} || ${recon>/transactionItems}.length > 0 }"
+                class="mdStatTile mdStatTileBlue"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Transaction Amount :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{ path: 'recon>/transactionsTotal', formatter: '.formatBalanceValue' }"
+                            class="panelSubValue mdNoMargin transactionAmountValue openingBalanceValue"
+                        />
+                    </HBox>
+                </HBox>
+            </VBox>
+            <VBox
+                visible="{= ${recon>/transactionsBusy} || ${recon>/transactionItems}.length > 0 }"
+                class="mdStatTile mdStatTileGreen"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Transactions :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{= ${recon>/transactionItems}.length }"
+                            class="panelSubValue mdNoMargin transactionCountValue openingBalanceValue"
+                        />
+                    </HBox>
+                </HBox>
+            </VBox>
+             <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://filter"
+                    text="Filter"
+                    type="Transparent"
+                    tooltip="Filter"
+                    press=".onLineItemsFilterPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="transactionsTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="transactionsTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="transactionsTable" />
+                    </customData>
+                </Button>
+            </HBox>
+               
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/transactionsBusy} &amp;&amp; ${recon>/transactionItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Transactions Data"
+            description="{= 'No transactions found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + ' in ' + ${recon>/mdPeriodLabel} + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+        <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+            visible="{= ${recon>/transactionsBusy} || ${recon>/transactionItems}.length > 0 }"
+        >
+            
+           
+        </HBox>
+
+        <table:Table
+            id="transactionsTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/transactionItems}"
+            busy="{recon>/transactionsBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/transactionsBusy} || ${recon>/transactionItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="13"
+            noData="No transactions found for this period."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <!-- ═══ customData key="colId" — same shared colId scheme as
+                     masterDetailTable (see OpenItemsPanel.fragment.xml),
+                     so Column Settings / Select Layout can rebuild this
+                     table too, in step with every other panel's table. ═══ -->
+                <table:Column width="20%" sortProperty="Belnr" filterProperty="Belnr">
+                    <table:label>
+                        <Label text="Document" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Belnr}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="15%" sortProperty="Budat" filterProperty="Budat">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="30%" sortProperty="Blart" filterProperty="Blart">
+                    <table:label>
+                        <Label text="Type" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Blart}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="20%"
+                    hAlign="End"
+                    sortProperty="NetAmt"
+                    filterProperty="NetAmt"
+                >
+                    <table:label>
+                        <Label text="Amount" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectNumber number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="15%"
+                    hAlign="End"
+                    sortProperty="Augbl"
+                    filterProperty="Augbl"
+                >
+                    <table:label>
+                        <Label text="Status" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectStatus
+                            text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                            state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                        />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

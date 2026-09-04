@@ -52,6 +52,24 @@
     flex: 0 1 6rem;
 }
 
+/* Supplier now reads "code - Name" once resolved, and the vendor name is
+   no longer repeated inside every detail panel (see mdPaymentsIdentityTile
+   etc.) — this filter field is the one place it's shown, so give it more
+   room than Company Code/the two date fields. */
+.filterFieldSupplier {
+    flex: 1 1 0;
+    min-width: 9rem;
+    max-width: 24rem;
+}
+
+/* From/To Date only ever hold a short dd.MM.yyyy value — narrower than
+   Supplier's share so Supplier gets the room it needs. */
+.filterFieldDate {
+    min-width: 7.5rem;
+    max-width: 9.5rem;
+    flex: 0 1 9rem;
+}
+
 .filterField .sapMInputBaseInner,
 .filterField .sapMInputBase,
 .filterField .sapMDatePicker {
@@ -72,6 +90,11 @@
     align-self: flex-end;
 }
 
+.filterSpacer {
+    flex: 1 1 auto;
+    min-width: 0.5rem;
+}
+
 /* The page now scrolls as ONE region via the DynamicPage content's
    Panel + ScrollContainer (see main.view.xml). Nothing below may impose
    its own fixed height / max-height / overflow:hidden — any of those
@@ -84,6 +107,23 @@
     min-height: 100%;
 }
 
+/* Detail.view.xml's own wrapper (id is unique to that view, so this cant
+   affect Mains use of .contentWrapperFixed above) needs an actual, not
+   minimum, height:100% -- masterDetailCards independently-scrolling
+   sidebar/content columns (.mdSidebarPanel/.mdRightContentArea, both
+   height:100%) need a real measured height to fill, not a viewport-vh
+   guess (see .mdLayoutRow). display:flex + flex-direction:column lets
+   masterDetailCard (flex: 1 1 100%, see .mdRightPanelFullWidth) claim
+   exactly the remaining height below the BusyIndicator above it.
+   [id$="..."] because UI5 prefixes every controls configured id with its
+   view id at runtime (e.g. container-supplieropenitems---detail--
+   detailContentWrapper) -- a plain #detailContentWrapper selector never
+   matches anything actually rendered. */
+[id$="detailContentWrapper"] {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
 /* Tighten the default sapUiSmallMargin (0.5rem all round) that
    contentWrapperFixed shares — trims the extra air above/around the
    dashboard card so it sits snug under the filter bar. */
@@ -215,11 +255,19 @@
 }
 
 .panelSubTitle {
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.9rem;
+    font-weight: 900;
     color: #1a2b47;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.2;
     display: block;
+}
+.panelSubValue{
+     font-size: 0.9rem;
+    font-weight: 870;
+    color: #000000;
+    margin-bottom: 0.2;
+    display: block;
+
 }
 
 .vendorsForHeading {
@@ -875,6 +923,12 @@
 .mdRightPanelFullWidth {
     width: 100%;
     flex: 1 1 100%;
+    /* Exclusive to Detail.view.xml's masterDetailCard now â€” lets it
+       actually claim #detailContentWrapper's real measured height
+       (percentage flex-basis needs a definite-height ancestor chain,
+       which #detailContentWrapper's own height:100% now provides) instead
+       of being pushed to its natural content size. */
+    min-height: 0;
 }
 
 .mdRightHeaderRow {
@@ -944,11 +998,11 @@
     background: #fafbfc;
     border: 1px solid #eef0f2;
     border-radius: 0.75rem;
-    padding: 0.65rem 0.85rem;
+    padding: 0.25rem 0.4rem;
     flex: 1 1 8rem;
     min-width: 8rem;
-    min-height: 3.6rem;
-    gap: 0.2rem;
+    min-height: 1.8rem;
+    gap: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -959,11 +1013,11 @@
     background: #fafbfc;
     border: 1px solid #eef0f2;
     border-radius: 0.75rem;
-    padding: 0.65rem 0.85rem;
+    padding: 0.25rem 0.4rem;
     flex: 1 1 25rem;
     min-width: 8rem;
-    min-height: 3.6rem;
-    gap: 0.2rem;
+    min-height: 1.8rem;
+    gap: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1149,6 +1203,22 @@
     box-shadow: 0 0 0 2px rgba(179, 38, 30, 0.25);
 }
 
+/* Lots received panel's by-Vcode chart: the "A" and "A4" bars draw green
+   instead of the default accepted-code blue (still distinct from the
+   R/R1-R3 red group) — see _renderLotsReceivedTypeBarChart. */
+.mdBarPositive {
+    background: #0f9d78;
+}
+
+.mdBarPositive:hover {
+    background: #0c7d60;
+}
+
+.mdBarPositive.mdBarActive {
+    background: #095e48;
+    box-shadow: 0 0 0 2px rgba(15, 157, 120, 0.25);
+}
+
 /* Months with no postings at all get a flat, muted sliver instead of the
    normal blue fill — visually distinct from a genuinely small real value. */
 .mdBarEmpty {
@@ -1158,6 +1228,19 @@
 
 .mdBarEmpty:hover {
     background: #e5e8ec;
+}
+
+/* Lots received panel's by-Vcode chart : always exactly ten fixed bars
+   (LOTS_RECEIVED_CODES), so — unlike the 12-bar monthly chart sharing the
+   same .mdBarChartRow/.mdBarCol/.mdBar markup — there's room to draw each
+   bar wider with a tighter gap between columns, scoped to this chart's
+   container id so the monthly chart's spacing is untouched. */
+#mdLotsReceivedBarChartContainer.mdBarChartRow {
+    gap: 0.25rem;
+}
+
+#mdLotsReceivedBarChartContainer .mdBar {
+    width: 2.6rem;
 }
 
 /* The "Normal / Open item / Partial payment" chart tile inside the
@@ -1259,13 +1342,58 @@
 
 .mdLineItemsTitle {
     margin-top: 0;
+    font-size: 0.78rem;
 }
 
 /* Row holding the "Line items (N records)" title alongside the Column
    Settings / Select Layout buttons for the master-detail table. */
 .mdLineItemsTitleRow {
     width: 100%;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.15rem;
+}
+
+/* Column Settings / Select Layout (and Refresh/Back where they share the
+   same row) — kept as tight and small as possible so this toolbar reads
+   like a compact strip, not full-size buttons, and the table right below
+   it has the smallest possible header gap. */
+.mdLineItemsToolBtns {
+    gap: 0.15rem;
+    align-items: center;
+}
+
+.mdLineItemsToolBtns .sapMBtn {
+    min-width: 0;
+    vertical-align: middle;
+}
+
+/* Fixed-height buttons force the icon and text apart onto two lines —
+   let the button size to its content instead (compact padding does the
+   shrinking), and keep icon + text on one row, vertically centered. */
+.mdLineItemsToolBtns .sapMBtnInner {
+    display: inline-flex;
+    align-items: center;
+    height: auto;
+    min-height: 0;
+    padding: 0.2rem 0.5rem;
+    line-height: 1;
+}
+
+.mdLineItemsToolBtns .sapMBtnContent {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+}
+
+.mdLineItemsToolBtns .sapMBtnText {
+    font-size: 0.72rem;
+    line-height: 1;
+}
+
+.mdLineItemsToolBtns .sapMBtnIcon {
+    font-size: 0.8rem;
+    line-height: 1;
+    margin: 0;
 }
 
 /* Chart stacked full-width above the Line items table (also full-width)
@@ -1274,7 +1402,7 @@
    items" sit on one clean baseline and their content starts at the same
    distance under it. */
 .mdChartAndLineItemsStack {
-    gap: 0.75rem;
+    gap: 0.4rem;
     width: 100%;
 }
 
@@ -1316,16 +1444,20 @@
 @keyframes mdPanelFadeSlideIn {
     from {
         opacity: 0;
-        transform: translateY(6px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
+/* Opacity-only fade — no transform. A translateY() here used to animate the
+   whole panel including its sap.ui.table grid, and animating a transform on
+   a container while sap.ui.table is laying out/virtualizing rows caused a
+   transient double-row/strikethrough glitch when switching between module
+   panels (e.g. Accepted Qty -> Rejected Qty). Opacity alone doesn't trigger
+   that reflow. */
 .mdPanelAnimate {
-    animation: mdPanelFadeSlideIn 0.22s ease-out;
+    animation: mdPanelFadeSlideIn 0.15s ease-out;
 }
 
 .mdLineItemsColumn {
@@ -1333,11 +1465,11 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    background: #ffffff;
+    gap: 0.2rem;
+    /* background: #fcfceb; */
     border: 1px solid #eef0f2;
     border-radius: 0.5rem;
-    padding: 0.6rem 0.75rem;
+    padding: 0.4rem 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
     box-sizing: border-box;
 }
@@ -1355,7 +1487,7 @@
     border: 1px solid #eef0f2;
     border-radius: 0.5rem;
     overflow: hidden;
-    margin-top: 0.5rem;
+    margin-top: 0.2rem;
 }
 
 .mdGridTable .sapUiTableCtrlBefore,
@@ -1368,14 +1500,27 @@
     border-bottom: 2px solid #eef0f2;
 }
 
+/* As compact as the grid table's own row/header height controls allow —
+   smaller font plus tighter cell padding so the whole table (and every row
+   in it) takes up as little space as possible. */
+.mdGridTable .sapUiTableColHdr,
+.mdGridTable .sapUiTableCCnt .sapUiTableRowHdr {
+    height: 1.7rem;
+}
+
 .mdGridTable .sapUiTableCol {
-    font-size: 0.78rem;
+    font-size: 0.7rem;
 }
 
 .mdGridTable .sapUiTableCell {
-    font-size: 0.82rem;
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
+    font-size: 0.72rem;
+    padding-top: 0.12rem;
+    padding-bottom: 0.12rem;
+}
+
+.mdGridTable .sapUiTableRowHdr,
+.mdGridTable .sapUiTableCtrlRow > .sapUiTableCell {
+    line-height: 1.5rem;
 }
 
 .mdGridTable .sapUiTableRow:hover > .sapUiTableCell {
@@ -1518,16 +1663,52 @@
     border-radius: 2px;
 }
 
+
+.largeObjectStatus {
+    font-size: 1.3rem !important;
+    padding: 10px 18px !important;
+}
+
+.largeObjectStatus .sapUiIcon {
+    font-size: 1.2rem !important;
+}
 /* ═══════════════ MODULES SIDEBAR : docked Finance / Materials / Quality
    panel next to the master-detail content, Gmail-style — pinned open by
    default; "Modules" toggles mdSidebarPanel's visibility, and since it's a
    flex sibling of mdRightContentArea (flex:1), the right panel reflows to
    fill the freed width automatically instead of needing a manual resize. ═══ */
+/* #detailContentWrapper/#masterDetailCard establish a real, measured
+   height:100% chain below (not a guessed viewport number) â€” see those
+   rules further down â€” so mdLayoutRow's 100% here resolves against
+   masterDetailCard's actual on-screen height, whatever that is on THIS
+   browser/window/zoom. A calc(100vh - Nrem) constant here previously had
+   to guess exactly how tall the header toolbar/browser chrome above it
+   was; any mismatch (different browser chrome, zoom level, OS) either left
+   a blank strip below the row or â€” worse â€” clipped its last few pixels
+   with nothing left to scroll into, since both columns already stop
+   scrolling once they hit their own max. */
 .mdLayoutRow {
     width: 100%;
     align-items: stretch;
+    /* Both columns below are given this SAME height and scroll
+       internally (overflow-y: auto each) so they scroll independently of
+       each other in the normal case. A pure height:100% here (relying on
+       sap.m.Page/Panel/ScrollContainer to propagate a definite pixel
+       height through plain CSS percentages) turned out to be unreliable
+       -- it collapsed to this row's own CONTENT height instead of a
+       bounded one on at least one real browser, which silently removed
+       both columns' overflow (nothing to scroll past a box that's
+       exactly as tall as its content) and made the tail of the sidebar
+       list permanently unreachable. Back to a viewport-relative calc as
+       the bound -- deliberately generous (reserves more top chrome than
+       strictly measured) so it is never TALLER than the real available
+       space. detailScrollContainer's own vertical scroll (see
+       Detail.view.xml) is left enabled as a safety net: if this guess is
+       ever still too generous on some browser/zoom, the outer container
+       catches the leftover overflow instead of clipping it unreachably. */
+    height: calc(100vh - 7rem);
+    min-height: 0;
 }
-
 .mdSidebarPanel {
     flex-shrink: 0;
     align-self: flex-start;
@@ -1540,15 +1721,23 @@
     width: 10.5rem;
     border-right: 1px solid #eef0f2;
     background: #f5f7fa;
-    /* Stays put while the right panel content scrolls past it — the page's
-       only scroller is the outer DynamicPage ScrollContainer (see the
-       "page scrolls as ONE region" note above), so this sticks relative
-       to that, not to a scroll container of its own. */
-    position: sticky;
-    top: 0.5rem;
-    max-height: calc(100vh - 1rem);
+    /* No longer position:sticky — sticky pinned it relative to the shared
+       outer page scroller, which is exactly what coupled its scroll to the
+       right column's. A plain fixed-height box with its own overflow-y
+       scrolls purely on its own content, regardless of what the right
+       column is doing. */
+    height: 100%;
     overflow-y: auto;
-    z-index: 2;
+    height: 100%;
+    overflow-y: auto;
+    /* NOT overscroll-behavior-y:contain here anymore -- that fully blocks
+       wheel scroll from chaining into detailScrollContainer, which is now
+       deliberately a safety-net scroller (see Detail.view.xml). contain
+       would have defeated that net: if this column ever renders taller
+       than mdLayoutRow's calc(100vh - 7rem) bound, contain would stop
+       the wheel dead at this box's own edge with the overflow still
+       unreachable, instead of letting it chain up to the outer scroller
+       that can actually reach it. */
 }
 
 /* ═══ Modules sidebar rows : flat, compact list rows — no icon chips, no
@@ -1650,6 +1839,76 @@
     transition: color 0.12s ease;
 }
 
+/* "Accepted Qty" (green), "Lots Accepted" (blue), "Rejected Qty" (red) rows
+   in the Materials (MM)/Quality (QM) sidebar keep a fixed label color
+   instead of the default grey â€” including on hover, where the generic
+   [class*="sapMLIBActionable"]:hover rule above would otherwise repaint
+   every row's label the same blue. */
+.mdSidebarRowLabelGreen {
+    color: #0f9d78;
+}
+
+.mdSidebarRowLabelBlue {
+    color: #3979c9;
+}
+
+.mdSidebarRowLabelRed {
+    color: #b3261e;
+}
+
+/* Total Qty Breakdown table (Share of Business) — Share of Qty/Value %
+   columns: >=100% is a healthy/over share (green), <100% under (red).
+   Same palette as .mdSidebarRowLabelGreen/Red above. */
+.mdSobShareGreen {
+    color: #0f9d78 !important;
+    font-weight: 600;
+}
+
+.mdSobShareRed {
+
+    color: #b3261e !important;
+    font-weight: 600;
+}
+
+/* Whole-row coloring for the Total Qty Breakdown table
+   (totalShareBusinessTable, ShareOfBusinessPanel.fragment.xml) — each
+   ColumnListItem carries a data-sobshare="GREEN"/"RED" attribute (written
+   via CustomData writeToDom="true", driven by .formatShareRowStatus on the
+   row's Share of Qty %). Attribute selector on the <tr> paints every cell
+   in the row, same technique/!important as the reference snippet. */
+.mdSobBreakdownTable tr[data-sobshare="GREEN"] {
+    background: #d7f5e9 !important;
+}
+
+.mdSobBreakdownTable tr[data-sobshare="RED"] {
+    background: #ee5a4f !important;
+}
+.greenCell {
+    background-color: green;
+    color: white;
+    display: block;
+    width: 100%;
+}
+
+.redCell {
+    background-color: red;
+    color: white;
+    display: block;
+    width: 100%;
+}
+
+.mdSidebarRowLI[class*="sapMLIBActionable"]:hover .mdSidebarRowLabelGreen {
+    color: #0f9d78;
+}
+
+.mdSidebarRowLI[class*="sapMLIBActionable"]:hover .mdSidebarRowLabelBlue {
+    color: #3979c9;
+}
+
+.mdSidebarRowLI[class*="sapMLIBActionable"]:hover .mdSidebarRowLabelRed {
+    color: #b3261e;
+}
+
 .mdSidebarRowValue {
     font-size: 0.7rem;
     font-weight: 700;
@@ -1693,6 +1952,76 @@
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
+    /* Its own scroller, independent of mdSidebarPanel's — both columns now
+       share mdLayoutRow's fixed height (see .mdLayoutRow) and scroll only
+       their own content; neither depends on the outer page ScrollContainer
+       or on the other column's scroll position. */
+    height: 100% !important;
+    overflow-y: auto;
+    /* NOT overscroll-behavior-y:contain (see .mdSidebarPanel for why) --
+       detailScrollContainer is a deliberate safety-net scroller now, and
+       contain would block this column's overflow from ever reaching it. */
+    flex-direction: column;
+}
+
+/* Each panel (Opening balance, Transactions, Advance balance, Share of
+   Business, ...) renders as a direct child of mdRightContentArea. Left to
+   their natural content height they sit at the top with the rest of
+   mdRightContentArea's fixed height left blank underneath (visible once a
+   panel's grid has few rows). Stretching every direct child to fill that
+   height lets each panel's own flex children (in particular its
+   visibleRowCountMode="Auto" table) grow into the remaining space instead
+   of leaving it empty. min-height: 0 is required so the flex child can
+   actually shrink/scroll instead of forcing mdRightContentArea to grow
+   past its own fixed height. */
+/* Targets .mdPanelAnimate specifically (not a framework class like
+   sapMVBox) because every panel fragment's own root element carries this
+   class already (see mdPanelFadeSlideIn) — a reliable hook regardless of
+   whether that root happens to render as VBox or FlexBox.
+   :not(.mdStatTilesRow) excludes OpenItemsPanel's stat-tile row — THAT
+   element also carries .mdPanelAnimate directly (it's the wrap="Wrap" row
+   of stat boxes, not the growing chart/table region), so stretching it and
+   forcing flex-direction:column on it blew its tiles up to huge full-height
+   boxes instead of leaving them their normal compact row layout. */
+.mdRightContentArea > .mdPanelAnimate:not(.mdStatTilesRow) {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.mdChartAndLineItemsStack,
+.mdLineItemsColumn,
+.openItemsTableContainer {
+    min-height: 0;
+}
+
+/* mdChartAndLineItemsStack is OpenItemsPanel's own growing region — a
+   sibling of the header FlexBox (which carries .mdPanelAnimate) directly
+   under mdRightContentArea, not itself covered by that selector. */
+.mdChartAndLineItemsStack {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.mdLineItemsColumn {
+    flex: 1 1 auto;
+}
+
+.openItemsTableContainer {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Just grow to fill — NOT display:flex, sap.ui.table.Table manages its own
+   internal DOM layout (header/rows/scrollbars) and measures its root
+   element's own height for visibleRowCountMode="Auto"; turning that root
+   into a flex container would fight that internal layout. */
+.mdGridTable {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 @media (max-width: 900px) {
@@ -2030,6 +2359,9 @@ html, body {
     color: var(--sapContent_LabelColor, #6a6d70);
     font-size: 0.75rem;
 }
+.openingBalanceValue {
+    margin-left: 12px !important;
+}
 
 .negativeText {
     color: var(--sapNegativeColor, #b00);
@@ -2165,4 +2497,684 @@ html, body {
     height: 65px;
     max-height: 65px;
     overflow: hidden;
+}
+/* Main VBox around the table */
+.openItemsTableContainer {
+    
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    
+}
+
+/* Table */
+.openItemsTableContainer .mdLineItemsTable {
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Table content area */
+.openItemsTableContainer .sapUiTableCnt {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Header */
+.openItemsTableContainer .sapUiTableColHdrCnt {
+    width: 100%;
+}
+
+/* Keep cells compact */
+.openItemsTableContainer .sapUiTableCell {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+/* Prevent unnecessary horizontal overflow */
+.openItemsTableContainer .sapUiTableCCnt {
+    width: 100%;
+}
+
+/* Make table fit smaller screens */
+@media (max-width: 1200px) {
+
+    .openItemsTableContainer .sapUiTableCell {
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+    }
+
+    .openItemsTableContainer .sapUiTableCol {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+
+    .openItemsTableContainer .sapUiTableCell {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
+}
+/* Share of Business panel — the single summary row (6 fields) rendered as
+   evenly-sized VBox tiles in a fixed 3-column grid instead of a table, so
+   every tile lines up in neat rows/columns on any screen size. */
+.mdShareOfBusinessPanel {
+    padding: 0.5rem 0.75rem;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.mdSobGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+    width: 100%;
+}
+
+.mdSobTile {
+    position: relative;
+    border: 1px solid #d8dce1;
+    border-left: 3px solid #d8dce1;
+    border-radius: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    box-shadow: 0 1px 3px rgba(20, 30, 50, 0.06);
+    box-sizing: border-box;
+    gap: 0.15rem;
+    min-height: 3.6rem;
+    width: 100%;
+    justify-content: center;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.mdSobTile:hover {
+    box-shadow: 0 6px 16px rgba(20, 30, 50, 0.1);
+    transform: translateY(-1px);
+}
+
+/* Very soft, barely-there tint per tile — just enough to tell the 6 fields
+   apart at a glance without reading as a loud/saturated block of color. */
+.mdSobGrid > .mdSobTile:nth-child(1) {
+    background: #f5f9fe;
+    border-color: #e6eef9;
+    border-left-color: #3979c9;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(2) {
+    background: #f4fbf8;
+    border-color: #e2f3ec;
+    border-left-color: #0f9d78;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(3) {
+    background: #fef9f2;
+    border-color: #f8ecda;
+    border-left-color: #e8791e;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(4) {
+    background: #f9f6fd;
+    border-color: #ede4f8;
+    border-left-color: #8e6fce;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(5) {
+    background: #f3fcfb;
+    border-color: #ddf4f1;
+    border-left-color: #1a9e93;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(6) {
+    background: #fdf6f9;
+    border-color: #f8e3eb;
+    border-left-color: #c23768;
+}
+
+/* Icon badges carry the actual color — a light tint background with a
+   plain, readable accent glyph — so each tile still reads apart clearly
+   even though the tile body itself stays almost white. */
+.mdSobTileIcon {
+    width: 1.3rem;
+    height: 1.3rem;
+    font-size: 0.75rem;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(1) .mdSobTileIcon {
+    background: #eaf2fd;
+    color: #3979c9;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(2) .mdSobTileIcon {
+    background: #eafaf3;
+    color: #0f9d78;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(3) .mdSobTileIcon {
+    background: #fef3e6;
+    color: #e8791e;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(4) .mdSobTileIcon {
+    background: #f4eefd;
+    color: #8e6fce;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(5) .mdSobTileIcon {
+    background: #e9fbfa;
+    color: #1a9e93;
+}
+
+.mdSobGrid > .mdSobTile:nth-child(6) .mdSobTileIcon {
+    background: #fdeef3;
+    color: #c23768;
+}
+
+.mdSobTileLabel {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #5a5e63;
+    white-space: normal;
+}
+
+.mdSobTileValue {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a2b47;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.mdSobTileClickable {
+    cursor: pointer;
+    border-width: 1.5px;
+}
+
+.mdSobTileClickable:hover {
+    box-shadow: 0 6px 16px rgba(20, 30, 50, 0.14);
+    transform: translateY(-1px);
+}
+
+/* Breakdown list (ShareLifnrSet) : kept as compact as possible — small
+   header, tight row padding/line-height — so it reads as an addendum
+   under the tile grid rather than a second full panel. */
+.mdSobBreakdownHeader {
+    margin-top: 0.5rem;
+    flex: 0 0 auto;
+}
+
+.mdSobBreakdownTable {
+    margin-top: 0.1rem;
+    font-size: 0.7rem;
+}
+
+@media (max-width: 900px) {
+    .mdSobGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .mdShareOfBusinessPanel {
+        padding: 0.4rem 0.5rem;
+    }
+
+    .mdSobGrid {
+        grid-template-columns: 1fr;
+    }
+}
+/* ============================================================
+   SHARE OF BUSINESS - TOP BOXES
+   ============================================================ */
+
+.mdSobRow {
+    width: 100%;
+    gap: 10px;
+    box-sizing: border-box;
+}
+
+.mdSobSecondRow {
+    margin-top: 10px;
+}
+
+/* Total Qty/Total Amount boxes (Share of Business, Total Qty Breakdown
+   view) — small gap between them instead of the huge SpaceBetween-driven
+   gap that used to stretch across the whole row once every other box was
+   hidden. See ShareOfBusinessPanel.fragment.xml's sobTopRow/sobTotalQtyBox. */
+.mdSobBoxSpaced {
+    margin-right: 16px;
+}
+
+.mdSobBox {
+    min-height: 88px;
+    padding: 12px 16px;
+    box-sizing: border-box;
+
+    border-radius: 12px;
+    border: 1px solid #e1e7ed;
+
+    background: #f5f8fb;
+
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+    overflow: hidden;
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        background 0.15s ease;
+}
+
+
+/* Clickable boxes */
+
+.mdSobClickable {
+    cursor: pointer;
+}
+
+.mdSobClickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+    background: #eef5ff;
+}
+
+.mdSobClickable:active {
+    transform: translateY(0);
+}
+
+
+/* ============================================================
+   TITLE
+   ============================================================ */
+
+.mdSobBoxTitle {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #17365d;
+    white-space: nowrap;
+}
+
+
+/* ============================================================
+   ICON
+   ============================================================ */
+
+.mdSobBoxIcon {
+    font-size: 1rem;
+    color: #0874d1;
+}
+
+
+/* ============================================================
+   MAIN VALUE
+   ============================================================ */
+
+.mdSobBoxValue {
+    display: block;
+
+    margin-top: 6px;
+
+    font-size: 1.35rem;
+    line-height: 1.4;
+
+    font-weight: 700;
+
+    color: #1d3557;
+
+    white-space: normal;
+    word-break: break-word;
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.mdSobBoxFooter {
+    display: block;
+
+    margin-top: 3px;
+
+    font-size: 0.72rem;
+
+    color: #6a7785;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1000px) {
+
+    .mdSobBox {
+        min-height: 82px;
+        padding: 10px 12px;
+    }
+
+    .mdSobBoxValue {
+        font-size: 1.15rem;
+    }
+
+    .mdSobBoxTitle {
+        font-size: 0.85rem;
+    }
+}
+
+
+@media (max-width: 700px) {
+
+    .mdSobRow {
+        flex-direction: column;
+    }
+
+    .mdSobBox {
+        width: 100% !important;
+    }
+
+}/* ============================================================
+   COMPACT SHARE OF BUSINESS BOXES
+   ============================================================ */
+
+.mdSobRow {
+    width: 100%;
+    gap: 8px;
+    box-sizing: border-box;
+}
+
+.mdSobSecondRow {
+    margin-top: 8px;
+}
+
+.mdSobBox {
+    min-height: 0 !important;
+    height: 72px !important;
+
+    padding: 7px 14px !important;
+
+    box-sizing: border-box;
+
+    border-radius: 10px;
+    border: 1px solid #dce3e9;
+
+    background: #f5f8fb;
+
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+    overflow: hidden;
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+
+/* ============================================================
+   CLICKABLE BOX
+   ============================================================ */
+
+.mdSobClickable {
+    cursor: pointer;
+}
+
+.mdSobClickable:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+
+/* ============================================================
+   TITLE
+   ============================================================ */
+
+.mdSobBoxTitle {
+    font-size: 0.85rem !important;
+    line-height: 1.1 !important;
+
+    font-weight: 600;
+
+    color: #17365d;
+
+    white-space: nowrap;
+}
+
+
+/* ============================================================
+   ICON
+   ============================================================ */
+
+.mdSobBoxIcon {
+    font-size: 0.95rem !important;
+    color: #0874d1;
+}
+
+
+/* ============================================================
+   VALUE
+   ============================================================ */
+
+.mdSobBoxValue {
+    display: block;
+
+    margin-top: 2px !important;
+
+    font-size: 1.15rem !important;
+    line-height: 1.15 !important;
+
+    font-weight: 700;
+
+    color: #1d3557;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.mdSobBoxFooter {
+    display: block;
+
+    margin-top: 1px !important;
+
+    font-size: 0.68rem !important;
+    line-height: 1 !important;
+
+    color: #6a7785;
+
+    white-space: nowrap;
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 700px) {
+
+    .mdSobRow {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .mdSobBox {
+        width: 100% !important;
+        height: 68px !important;
+    }
+}.mdSobHeaderBox {
+    width: 100%;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+}
+
+.mdSobHeaderTitleRow {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 4px !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+}
+
+.mdSobHeaderTitleRow .panelSubTitle {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 1rem !important;
+}
+
+.mdSobCompactContent {
+    width: 100%;
+    padding: 0 !important;
+    margin: 0 !important;
+    /* Natural height only — this just holds the 6 stat tiles, it must NOT
+       grow, or it competes with the breakdown table (.mdGridTable, further
+       down in the same mdShareOfBusinessPanel flex column) for the panel's
+       remaining height instead of leaving it all to the table. */
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.mdSobRow {
+    width: 100%;
+    gap: 6px;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box;
+}
+
+.mdSobSecondRow {
+    margin-top: 5px !important;
+}
+
+.mdSobBox {
+    height: 58px !important;
+    min-height: 58px !important;
+    padding: 4px 12px !important;
+    box-sizing: border-box;
+
+    border-radius: 8px;
+    border: 1px solid #dce3e9;
+    background: #f5f8fb;
+
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.mdSobBoxTitle {
+    font-size: 0.8rem !important;
+    line-height: 1 !important;
+    font-weight: 600;
+    color: #17365d;
+    white-space: nowrap;
+}
+
+.mdSobBoxIcon {
+    font-size: 0.8rem !important;
+    color: #0874d1;
+}
+
+.mdSobBoxValue {
+    display: block;
+    margin-top: 1px !important;
+    font-size: 1rem !important;
+    line-height: 1.05 !important;
+    font-weight: 700;
+    color: #1d3557;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mdSobBoxFooter {
+    display: block;
+    margin-top: 1px !important;
+    font-size: 0.6rem !important;
+    line-height: 1 !important;
+    color: #6a7785;
+    white-space: nowrap;
+}
+
+.mdSobClickable {
+    cursor: pointer;
+}
+
+.mdSobClickable:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Share of Business now shows all six stat boxes in one row instead of two
+   rows of three â€” mdSobSingleRow drops the second row's top margin
+   (nothing wraps below it any more), and mdSobBoxCompact shrinks each
+   box's height/padding/font so six fit comfortably where three used to. */
+.mdSobSingleRow {
+    margin-top: 0 !important;
+    flex: 1 1 auto;
+    align-items: stretch !important;
+}
+
+.mdSobBoxCompact {
+    height: auto !important;
+    min-height: 46px !important;
+    flex: 1 1 auto;
+    padding: 3px 8px !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.mdSobBoxCompact .mdSobBoxTitle {
+    font-size: 0.68rem !important;
+}
+
+.mdSobBoxCompact .mdSobBoxIcon {
+    font-size: 0.68rem !important;
+}
+
+.mdSobBoxCompact .mdSobBoxValue {
+    font-size: 0.82rem !important;
+}
+
+/* Light per-box tint — targeted by each box's own literal id via an
+   attribute "ends with" selector rather than a plain #id selector, since
+   UI5 auto-prefixes control ids at render time (e.g.
+   "__xmlview0--sobQuantityBox") — the suffix after "--" is still the
+   literal id given in the fragment, so [id$="sobQuantityBox"] matches
+   regardless of whatever prefix got prepended. One color per field:
+   Quantity/Total Qty/Share of Qty%/Value/Total Amount/Share of Value%. */
+[id$="sobQuantityBox"] {
+    background: #f5f9fe !important;
+    border-color: #d7e6f8 !important;
+}
+
+[id$="sobTotalQtyBox"] {
+    background: #f4fbf8 !important;
+    border-color: #d3f0e4 !important;
+}
+
+[id$="sobShareQtyBox"] {
+    background: #fef9f2 !important;
+    border-color: #f8ecda !important;
+}
+
+[id$="sobValueBox"] {
+    background: #f9f6fd !important;
+    border-color: #ede4f8 !important;
+}
+
+[id$="sobTotalAmountBox"] {
+    background: #f3fcfb !important;
+    border-color: #ddf4f1 !important;
+}
+
+[id$="sobShareValueBox"] {
+    background: #fdf6f9 !important;
+    border-color: #f8e3eb !important;
 }

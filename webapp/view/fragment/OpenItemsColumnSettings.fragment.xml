@@ -1,0 +1,94 @@
+<!--
+    ⚠️ Column IDs here ("oiCol1".."oiCol5") are read back in
+    Main.controller.js (_applyOpenItemsColumnSelection /
+    _getOpenItemsCellByColumnId) — keep them in sync if columns are
+    added/removed.
+-->
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:dnd="sap.ui.core.dnd"
+>
+    <Dialog
+        id="oiColumnDialog"
+        title="Select / Re-order Columns"
+        draggable="true"
+        resizable="false"
+        contentWidth="20rem"
+    >
+        <VBox class="sapUiSmallMargin">
+            <SearchField
+                id="oiColumnSearchField"
+                liveChange=".onOpenItemsColumnSearch"
+            />
+            <List
+                id="oiColumnSelectorList"
+                mode="MultiSelect"
+                includeItemInSelection="true"
+                items="{ path: 'oiColumnModel>/columns' }"
+            >
+                <dragDropConfig>
+                    <dnd:DragDropInfo
+                        sourceAggregation="items"
+                        targetAggregation="items"
+                        drop=".onOpenItemsDropColumnOrder"
+                    />
+                </dragDropConfig>
+                <CustomListItem>
+                    <HBox
+                        justifyContent="SpaceBetween"
+                        alignItems="Center"
+                    >
+                        <Text text="{oiColumnModel>label}" />
+                        <HBox>
+                            <Button
+                                icon="sap-icon://collapse-group"
+                                type="Transparent"
+                                tooltip="Move to top"
+                                press=".onOpenItemsMoveItemFirst"
+                            />
+                            <Button
+                                icon="sap-icon://slim-arrow-up"
+                                type="Transparent"
+                                tooltip="Move up"
+                                press=".onOpenItemsMoveItemUp"
+                            />
+                            <Button
+                                icon="sap-icon://slim-arrow-down"
+                                type="Transparent"
+                                tooltip="Move down"
+                                press=".onOpenItemsMoveItemDown"
+                            />
+                            <Button
+                                icon="sap-icon://expand-group"
+                                type="Transparent"
+                                tooltip="Move to bottom"
+                                press=".onOpenItemsMoveItemLast"
+                            />
+                        </HBox>
+                    </HBox>
+                    <customData>
+                        <core:CustomData
+                            key="key"
+                            value="{oiColumnModel>id}"
+                        />
+                    </customData>
+                </CustomListItem>
+            </List>
+        </VBox>
+        <beginButton>
+            <Button
+                text="Apply"
+                type="Accept"
+                press=".onOpenItemsColumnSettingsConfirm"
+            />
+        </beginButton>
+        <endButton>
+            <Button
+                text="Cancel"
+                type="Reject"
+                press=".onOpenItemsColumnSettingsCancel"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

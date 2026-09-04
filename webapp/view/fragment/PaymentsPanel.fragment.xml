@@ -1,0 +1,268 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ Payments panel : shown after the "Payments" module row is pressed
+         (calls PmtSelPrdSet directly, no dialog). No back button here — same
+         as Transactions/Advance balance/Debit notes, the single "Back to
+         Chart" button in the panel's own top header is the only nav-back. ═══ -->
+    <VBox visible="{recon>/mdShowPayments}" class="mdPanelAnimate">
+        
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+         <HBox
+            justifyContent="Start"
+            class="mdSidebarReopenRow"
+            visible="{= !${recon>/mdLeftPanelOpen} }"
+        >
+            <Button
+                id="mdLeftPanelMenuButtonPayments"
+                icon="sap-icon://navigation-right-arrow"
+                type="Transparent"
+                tooltip="Open"
+                class="mdSidebarGroupTitle"
+                press=".onMdLeftPanelMenuPress"
+            />
+        </HBox>
+    
+            <!-- ═══ Identity + Payments Total + Payment items, all kept in
+                 this one tile per your layout — arranged like the
+                 reference sketch: identity ("first one") full-width
+                 across the top, a horizontal divider, then Payments
+                 Total ("send one") / Payment items ("third one") side by
+                 side below, split by a vertical divider. ═══ -->
+            <VBox
+                visible="{= ${recon>/paymentsBusy} || ${recon>/paymentsItems}.length > 0 }"
+                class="mdStatTile1 mdStatTileNeutral mdPaymentsIdentityTile"
+            >
+                <HBox class="mdPaymentsTileCols">
+                    <VBox class="mdPaymentsTileCol">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <Text
+                                text="Payments Total"
+                                class="panelSubTitle mdNoMargin textLeft"
+                            />
+                            <core:Icon
+                                src="sap-icon://money-bills"
+                                class="mdStatIcon mdStatIconBlue"
+                            />
+                        </HBox>
+                        <Text
+                            text="{ path: 'recon>/paymentsTotal', formatter: '.formatBalanceValue' }"
+                            class="mdStatValue"
+                        />
+                    </VBox>
+                    <VBox class="mdPaymentsTileCol mdPaymentsTileColRight">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <Text
+                                text="Payment Items"
+                                class="panelSubTitle mdNoMargin textLeft "
+                            />
+                            <core:Icon
+                                src="sap-icon://list"
+                                class="mdStatIcon mdStatIconGreen"
+                            />
+                        </HBox>
+                        <Text
+                            text="{= ${recon>/paymentsItems}.length }"
+                            class="mdStatValue"
+                        />
+                    </VBox>
+                </HBox>
+            </VBox>
+            <VBox
+                visible="{= ${recon>/paymentsBusy} || ${recon>/paymentsItems}.length > 0 }"
+                class="mdStatTile1 mdStatTileNeutral"
+            >
+
+                <core:HTML
+                    id="mdPaymentsBarChartHtml"
+                    content="&lt;div id='mdPaymentsBarChartContainer' class='mdHBarChartWrap'&gt;&lt;/div&gt;"
+                    afterRendering=".onMdPaymentsBarChartHtmlRendered"
+                />
+            </VBox>
+            <!-- <HBox class="mdExportBtns">
+                <Button
+                    icon="sap-icon://refresh"
+                    type="Transparent"
+                    tooltip="Refresh"
+                    press=".onRefreshMasterDetail"
+                />
+                <Button
+                    icon="sap-icon://nav-back"
+                    type="Success"
+                    tooltip="Back to Chart"
+                    press=".onBackToChart"
+                />
+            </HBox> -->
+             <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="paymentsTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="paymentsTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/paymentsBusy} &amp;&amp; ${recon>/paymentsItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Payments Data"
+            description="{= 'No payments found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + ' in ' + ${recon>/mdPaymentsPeriodLabel} + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+        <!-- <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+            visible="{= ${recon>/paymentsBusy} || ${recon>/paymentsItems}.length > 0 }"
+        >
+            <Text
+                text="{= 'Payments — ' + ${recon>/mdPaymentsPeriodLabel} + ' (' + ${recon>/paymentsItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="paymentsTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="paymentsTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </HBox> -->
+
+        <table:Table
+            id="paymentsTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/paymentsItems}"
+            busy="{recon>/paymentsBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/paymentsBusy} || ${recon>/paymentsItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="14"
+            noData="No payments found for this period."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <!-- ═══ customData key="colId" — same shared colId scheme as
+                     masterDetailTable. ═══ -->
+                <table:Column width="20%" sortProperty="Belnr" filterProperty="Belnr">
+                    <table:label>
+                        <Label text="Document" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Belnr}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="15%" sortProperty="Budat" filterProperty="Budat">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="30%" sortProperty="Blart" filterProperty="Blart">
+                    <table:label>
+                        <Label text="Type" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Blart}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="20%"
+                    hAlign="End"
+                    sortProperty="NetAmt"
+                    filterProperty="NetAmt"
+                >
+                    <table:label>
+                        <Label text="Amount" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectNumber number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="15%"
+                    hAlign="End"
+                    sortProperty="Augbl"
+                    filterProperty="Augbl"
+                >
+                    <table:label>
+                        <Label text="Status" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectStatus
+                            text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                            state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                        />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

@@ -1,0 +1,662 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+
+    <VBox
+        visible="{recon>/mdShowShareOfBusiness}"
+        class="mdPanelAnimate mdShareOfBusinessPanel"
+    >
+
+        <!-- ============================================================
+             SHARE OF BUSINESS HEADER
+             Header + Six Share of Business Fields
+             ============================================================ -->
+
+        <VBox class="mdSobHeaderBox">
+
+            <!-- ========================================================
+                 HEADER TITLE + ACTION BUTTONS
+                 ======================================================== -->
+
+            <HBox
+                justifyContent="SpaceBetween"
+                alignItems="Center"
+                class="mdSobHeaderTitleRow"
+            >
+
+                <HBox alignItems="Center">
+
+                    <Button
+                        id="mdLeftPanelMenuButtonShareOfBusiness"
+                        icon="sap-icon://navigation-right-arrow"
+                        type="Transparent"
+                        tooltip="Open"
+                        class="mdSidebarGroupTitle"
+                        visible="{= !${recon>/mdLeftPanelOpen} }"
+                        press=".onMdLeftPanelMenuPress"
+                    />
+
+                    <Text
+                        text="Share of Business"
+                        class="panelSubTitle mdLineItemsTitle mdNoMargin"
+                    />
+
+                </HBox>
+
+
+              
+            </HBox>
+
+
+            <!-- ========================================================
+                 SIX SHARE OF BUSINESS BOXES
+                 ======================================================== -->
+
+            <VBox
+                visible="{= ${recon>/shareOfBusinessBusy} || ${recon>/shareOfBusinessItems}.length > 0 }"
+                class="mdSobCompactContent"
+            >
+
+                <!-- ====================================================
+                     SINGLE ROW — all six boxes side by side (mdSobBoxCompact
+                     shrinks padding/font so six fit where three used to)
+                     ==================================================== -->
+
+                <HBox
+                    id="sobTopRow"
+                    width="{= ${recon>/totalShareBusinessActive} ? 'auto' : '100%' }"
+                    justifyContent="{= ${recon>/totalShareBusinessActive} ? 'Start' : 'SpaceBetween' }"
+                    alignItems="Stretch"
+                    class="mdSobRow mdSobSingleRow"
+                >
+
+                    <!-- ==================================================
+                         1. QUANTITY — tons, not the raw KG figure
+                         ================================================== -->
+
+                    <VBox
+                        id="sobQuantityBox"
+                        width="16%"
+                        visible="{= !${recon>/totalShareBusinessActive} }"
+                        class="mdSobBox mdSobBoxCompact mdSobClickable"
+                    >
+
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                            width="100%"
+                        >
+
+                            <Text
+                                text="Quantity"
+                                class="mdSobBoxTitle panelSubTitle panelSubTitle"
+                            />
+
+                            <core:Icon
+                                src="sap-icon://product"
+                                class="mdSobBoxIcon"
+                            />
+
+                        </HBox>
+
+                        <Text
+                            text="{ path: 'recon>/shareOfBusinessItems/0/Value', formatter: '.formatShareOfBusinessQtyTons' }"
+                            class="mdSobBoxValue "
+                            wrapping="false"
+                        />
+
+
+
+                    </VBox>
+
+
+                    <!-- ==================================================
+                         2. TOTAL QTY — tons, not the raw KG figure
+                         ================================================== -->
+
+                    <VBox
+                        id="sobTotalQtyBox"
+                        width="{= ${recon>/totalShareBusinessActive} ? '15rem' : '16%' }"
+                        class="mdSobBox mdSobBoxCompact mdSobClickable mdSobBoxSpaced"
+                    >
+
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                            width="100%"
+                        >
+
+                            <Text
+                                text="Total Qty"
+                                class="mdSobBoxTitle"
+                            />
+
+                            <core:Icon
+                                src="sap-icon://shipping-status"
+                                class="mdSobBoxIcon"
+                            />
+
+                        </HBox>
+
+                        <Text
+                            text="{ path: 'recon>/shareOfBusinessItems/1/Value', formatter: '.formatShareOfBusinessQtyTons' }"
+                            class="mdSobBoxValue"
+                            wrapping="false"
+                        />
+
+
+                    </VBox>
+
+
+                    <!-- ==================================================
+                         3. SHARE OF QTY
+                         ================================================== -->
+
+                    <VBox
+                        id="sobShareQtyBox"
+                        width="16%"
+                        visible="{= !${recon>/totalShareBusinessActive} }"
+                        class="mdSobBox mdSobBoxCompact"
+                    >
+
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                            width="100%"
+                        >
+
+                            <Text
+                                text="Share of Qty (%)"
+                                class="mdSobBoxTitle"
+                            />
+
+                            <core:Icon
+                                src="sap-icon://pie-chart"
+                                class="mdSobBoxIcon"
+                            />
+
+                        </HBox>
+
+                        <Text
+                            text="{= ${recon>/shareOfBusinessItems/2/Value} + ' %' }"
+                            class="mdSobBoxValue"
+                            wrapping="false"
+                        />
+
+
+
+                    </VBox>
+
+
+                    <!-- ================================================
+                         4. VALUE — crores, not the raw rupee figure
+                         ================================================ -->
+
+                    <VBox
+                        id="sobValueBox"
+                        width="16%"
+                        visible="{= !${recon>/totalShareBusinessActive} }"
+                        class="mdSobBox mdSobBoxCompact mdSobClickable"
+                    >
+
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                            width="100%"
+                        >
+
+                            <Text
+                                text="Value"
+                                class="mdSobBoxTitle"
+                            />
+
+                            <core:Icon
+                                src="sap-icon://money-bills"
+                                class="mdSobBoxIcon"
+                            />
+
+                        </HBox>
+
+                        <Text
+                            text="{ path: 'recon>/shareOfBusinessItems/3/Value', formatter: '.formatShareOfBusinessValueCrores' }"
+                            class="mdSobBoxValue"
+                            wrapping="false"
+                        />
+
+
+
+                    </VBox>
+
+
+                    <!-- ================================================
+                         5. TOTAL AMOUNT — crores, not the raw rupee figure
+                         ================================================ -->
+
+                    <VBox
+                        id="sobTotalAmountBox"
+                        width="{= ${recon>/totalShareBusinessActive} ? '15rem' : '16%' }"
+                        class="mdSobBox mdSobBoxCompact"
+                    >
+
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                            width="100%"
+                        >
+
+                            <Text
+                                text="Total Amount"
+                                class="mdSobBoxTitle"
+                            />
+
+                            <core:Icon
+                                src="sap-icon://money-bills"
+                                class="mdSobBoxIcon"
+                            />
+
+                        </HBox>
+
+                        <Text
+                            text="{ path: 'recon>/shareOfBusinessItems/4/Value', formatter: '.formatShareOfBusinessValueCrores' }"
+                            class="mdSobBoxValue"
+                            wrapping="false"
+                        />
+
+
+
+                    </VBox>
+
+
+                    <!-- ================================================
+                         6. SHARE OF VALUE
+                         ================================================ -->
+
+                    <VBox
+                        id="sobShareValueBox"
+                        width="16%"
+                        visible="{= !${recon>/totalShareBusinessActive} }"
+                        class="mdSobBox mdSobBoxCompact"
+                    >
+
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                            width="100%"
+                        >
+
+                            <Text
+                                text="Share of Value (%)"
+                                class="mdSobBoxTitle"
+                            />
+
+                            <core:Icon
+                                src="sap-icon://pie-chart"
+                                class="mdSobBoxIcon"
+                            />
+
+                        </HBox>
+
+                        <Text
+                            text="{= ${recon>/shareOfBusinessItems/5/Value} + ' %' }"
+                            class="mdSobBoxValue"
+                            wrapping="false"
+                        />
+
+
+
+                    </VBox>
+
+                </HBox>
+
+            </VBox>
+
+        </VBox>
+
+
+        <!-- ============================================================
+             NO DATA
+             ============================================================ -->
+
+        <IllustratedMessage
+            visible="{= !${recon>/shareOfBusinessBusy} &amp;&amp; ${recon>/shareOfBusinessItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Share of Business data"
+            description="{= 'No Share of Business data found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+
+        <!-- ============================================================
+             SHARE BREAKDOWN HEADER
+             ============================================================ -->
+
+        <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow mdSobBreakdownHeader"
+            visible="{= ${recon>/shareLifnrBusy} || ${recon>/shareLifnrItems}.length > 0 }"
+        >
+
+            <Text
+                text="{= ${recon>/shareLifnrLabel} + ' Breakdown (' + ${recon>/shareLifnrItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+
+        </HBox>
+
+
+        <!-- ============================================================
+             BREAKDOWN TABLE
+             ============================================================ -->
+
+        <table:Table
+            id="shareLifnrTable"
+            width="100%"
+            rowHeight="18"
+            columnHeaderHeight="20"
+            rows="{recon>/shareLifnrItems}"
+            busy="{recon>/shareLifnrBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/shareLifnrBusy} || ${recon>/shareLifnrItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="12"
+            noData="No breakdown data found."
+            class="mdLineItemsTable mdGridTable mdSobBreakdownTable"
+        >
+
+            <table:columns>
+
+                <!-- PO Number -->
+                <table:Column width="14%" sortProperty="Ebeln" filterProperty="Ebeln">
+                    <table:label>
+                        <Label
+                            text="PO Number"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                    <table:template>
+                        <Text text="{recon>Ebeln}" />
+                    </table:template>
+                </table:Column>
+
+
+                <!-- Item -->
+                <table:Column
+                    width="8%"
+                    hAlign="End"
+                    sortProperty="Ebelp"
+                    filterProperty="Ebelp"
+                >
+                    <table:label>
+                        <Label
+                            text="Item"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                    <table:template>
+                        <Text text="{recon>Ebelp}" />
+                    </table:template>
+                </table:Column>
+
+
+                <!-- Date -->
+                <table:Column width="14%" sortProperty="Bedat" filterProperty="Bedat">
+                    <table:label>
+                        <Label
+                            text="Date"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                    <table:template>
+                        <Text
+                            text="{
+                                path: 'recon>Bedat',
+                                formatter: '.formatOpenItemDate'
+                            }"
+                        />
+                    </table:template>
+                </table:Column>
+
+
+                <!-- Material -->
+                <table:Column width="14%" sortProperty="Matnr" filterProperty="Matnr">
+                    <table:label>
+                        <Label
+                            text="Material"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                    <table:template>
+                        <Text
+                            text="{recon>Matnr}"
+                            wrapping="false"
+                        />
+                    </table:template>
+                </table:Column>
+
+
+                <!-- Description -->
+                <table:Column width="26%" sortProperty="Txz01" filterProperty="Txz01">
+                    <table:label>
+                        <Label
+                            text="Description"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                    <table:template>
+                        <Text text="{recon>Txz01}" />
+                    </table:template>
+                </table:Column>
+
+
+                <!-- Quantity -->
+                <table:Column
+                    width="12%"
+                    hAlign="End"
+                    sortProperty="Menge"
+                    filterProperty="Menge"
+                >
+                    <table:label>
+                        <Label
+                            text="Quantity"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                    <table:template>
+                        <Text text="{= ${recon>Menge} + ' ' + ${recon>Meins} }" textAlign="End" />
+                    </table:template>
+                </table:Column>
+
+
+                <!-- Price -->
+                <table:Column
+                    width="12%"
+                    hAlign="End"
+                    sortProperty="Netpr"
+                    filterProperty="Netpr"
+                >
+                    <table:label>
+                        <Label
+                            text="Price Per Kg"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                    <table:template>
+                        <Text
+                            text="{= ${recon>Netpr} }"
+                        />
+                    </table:template>
+
+
+                </table:Column>
+                <table:Column
+                    width="12%"
+                    hAlign="End"
+                    sortProperty="Netwr"
+                    filterProperty="Netwr"
+                >
+                    <table:label>
+                        <Label
+                            text="Total Price"
+                            design="Bold"
+                        />
+                    </table:label>
+
+                   <table:template>
+                        <Text
+                            text="{= ${recon>Netwr} }"
+                        />
+                    </table:template>
+
+
+                </table:Column>
+
+            </table:columns>
+
+        </table:Table>
+
+
+        <!-- ============================================================
+             TOTAL QTY BREAKDOWN HEADER
+             (company-wide, TotalShareBusinessSet — filtered on BudatFrom
+             only, not scoped to this supplier)
+             ============================================================ -->
+
+        <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow mdSobBreakdownHeader"
+            visible="{= ${recon>/totalShareBusinessBusy} || ${recon>/totalShareBusinessItems}.length > 0 }"
+        >
+
+            <Text
+                text="{= 'Total Qty Breakdown (' + ${recon>/totalShareBusinessItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+
+        </HBox>
+
+
+        <!-- ============================================================
+             TOTAL QTY BREAKDOWN TABLE
+             ============================================================ -->
+
+        <table:Table
+            id="totalShareBusinessTable"
+            width="100%"
+            rowHeight="18"
+            columnHeaderHeight="20"
+            rows="{recon>/totalShareBusinessItems}"
+            busy="{recon>/totalShareBusinessBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/totalShareBusinessBusy} || ${recon>/totalShareBusinessItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="12"
+            noData="No Total Qty breakdown data found."
+            class="mdLineItemsTable mdGridTable mdSobBreakdownTable"
+        >
+
+            <table:columns>
+
+                <!-- Supplier Name -->
+                <table:Column width="20%" sortProperty="Name1" filterProperty="Name1">
+                    <table:label>
+                        <Label text="Supplier Name" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Name1}" />
+                    </table:template>
+                </table:Column>
+
+                <!-- Previous Quantity -->
+                <table:Column width="10%" hAlign="End" sortProperty="PrevMenge" filterProperty="PrevMenge">
+                    <table:label>
+                        <Label text="Prev Qty" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>PrevMenge}" textAlign="End" />
+                    </table:template>
+                </table:Column>
+
+                <!-- Quantity -->
+                <table:Column width="12%" hAlign="End" sortProperty="Menge" filterProperty="Menge">
+                    <table:label>
+                        <Label text="Current Quantity" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Menge}" textAlign="End" />
+                    </table:template>
+                </table:Column>
+
+                <!-- Share of Qty -->
+                <table:Column width="12%" hAlign="End" sortProperty="SobMenge" filterProperty="SobMenge">
+                    <table:label>
+                        <Label text="Growth Prev. Year Qnty %" design="Bold" />
+                    </table:label>
+                    <table:template>
+                    
+   <ObjectStatus
+    class="sapUiSmallMarginBottom"
+    text="{= ${recon>SobMenge} + ' %' }"
+    inverted="true"
+    state="{= Number(${recon>SobMenge}) >= 100 ? 'Indication04' : 'Indication02' }"
+/>
+                    </table:template>
+                </table:Column>
+
+                <!-- Previous Value -->
+                <table:Column width="10%" hAlign="End" sortProperty="PrevNetwr" filterProperty="PrevNetwr">
+                    <table:label>
+                        <Label text="Prev Value" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>PrevNetwr}" textAlign="End" />
+                    </table:template>
+                </table:Column>
+
+                <!-- Value -->
+                <table:Column width="14%" hAlign="End" sortProperty="Netwr" filterProperty="Netwr">
+                    <table:label>
+                        <Label text="Current Value" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Netwr}" textAlign="End" />
+                    </table:template>
+                </table:Column>
+
+                <!-- Share of Value -->
+                <table:Column width="10%" hAlign="End" sortProperty="SobPrevMenge" filterProperty="SobPrevMenge">
+                    <table:label>
+                        <Label text="Growth Prev. Year Value %" design="Bold" />
+                    </table:label>
+                    <table:template>
+   <ObjectStatus
+    class="sapUiSmallMarginBottom"
+    text="{= ${recon>SobPrevMenge} + ' %' }"
+    inverted="true"
+    state="{= Number(${recon>SobPrevMenge}) >= 100 ? 'Indication04' : 'Indication02' }"
+/>
+                    </table:template>
+                </table:Column>
+
+            </table:columns>
+
+        </table:Table>
+
+    </VBox>
+
+</core:FragmentDefinition>

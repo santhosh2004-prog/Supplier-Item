@@ -1,0 +1,46 @@
+<!--
+    Multi-select checkbox filter popover for the Total PO table's Material
+    column — opened by the "Filter" button next to Column Settings/Select
+    Layout on TotalPOPanel.fragment.xml (see onTotalPOMaterialFilterPress in
+    Main.controller.js). The checkbox list is populated dynamically from
+    /totalPOMaterialOptions (every distinct Material actually present in the
+    current Total PO read), not a fixed list, since which materials exist
+    varies per supplier/date range. Selecting/unselecting applies the filter
+    immediately (onTotalPOMaterialFilterChange) instead of needing a
+    separate "Go"/"Apply" button.
+-->
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Popover
+        id="totalPOMaterialFilterPopover"
+        title="Filter: Material"
+        placement="Bottom"
+        contentWidth="18rem"
+    >
+        <List
+            id="totalPOMaterialFilterList"
+            mode="MultiSelect"
+            includeItemInSelection="true"
+            items="{ path: 'totalPOMaterialFilterModel>/values' }"
+            selectionChange=".onTotalPOMaterialFilterChange"
+            noDataText="No materials to filter by."
+        >
+            <StandardListItem
+                title="{totalPOMaterialFilterModel>text}"
+                selected="{totalPOMaterialFilterModel>selected}"
+            />
+        </List>
+        <footer>
+            <Toolbar>
+                <ToolbarSpacer />
+                <Button
+                    text="Clear"
+                    type="Transparent"
+                    press=".onTotalPOMaterialFilterClear"
+                />
+            </Toolbar>
+        </footer>
+    </Popover>
+</core:FragmentDefinition>

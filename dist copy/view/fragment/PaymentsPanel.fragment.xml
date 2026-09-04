@@ -1,0 +1,120 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <!-- ═══ Payments panel : shown after the "Payments" module row is pressed
+         (calls PmtSelPrdSet directly, no dialog). No back button here — same
+         as Transactions/Advance balance/Debit notes, the single "Back to
+         Chart" button in the panel's own top header is the only nav-back. ═══ -->
+    <VBox visible="{recon>/mdShowPayments}">
+        <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+        >
+            <Text
+                text="{= 'Payments — ' + ${recon>/mdPaymentsPeriodLabel} + ' (' + ${recon>/paymentsItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+        </HBox>
+
+        <VBox class="mdStatTile mdPaymentsTotalTile mdStatTileBlue">
+            <HBox
+                justifyContent="SpaceBetween"
+                alignItems="Center"
+            >
+                <Text
+                    text="Payments Total"
+                    class="mdStatLabel"
+                />
+                <core:Icon
+                    src="sap-icon://money-bills"
+                    class="mdStatIcon mdStatIconBlue"
+                />
+            </HBox>
+            <Text
+                text="{ path: 'recon>/paymentsTotal', formatter: '.formatBalanceValue' }"
+                class="mdStatValue"
+            />
+        </VBox>
+
+        <VBox class="mdTableScrollWrap">
+            <Table
+                id="paymentsTable"
+                items="{recon>/paymentsItems}"
+                noDataText="No payments found for this period."
+                sticky="ColumnHeaders"
+                class="mdLineItemsTable"
+            >
+                <columns>
+                    <Column>
+                        <Label
+                            text="Document"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column>
+                        <Label
+                            text="Date"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column>
+                        <Label
+                            text="Type"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column hAlign="End">
+                        <Label
+                            text="Amount"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column hAlign="End">
+                        <Label
+                            text="Status"
+                            design="Bold"
+                        />
+                    </Column>
+                </columns>
+                <items>
+                    <ColumnListItem type="Inactive">
+                        <cells>
+                            <Text
+                                text="{recon>Belnr}"
+                            />
+                            <Text
+                                text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }"
+                            />
+                            <Text
+                                text="{recon>Blart}"
+                            />
+                            <ObjectNumber
+                                number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }"
+                            />
+                            <ObjectStatus
+                                text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                                state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                            />
+                        </cells>
+                    </ColumnListItem>
+                </items>
+            </Table>
+        </VBox>
+        <HBox
+            class="mdLineItemsTotalRow"
+            justifyContent="End"
+        >
+            <Label
+                text="Total"
+                design="Bold"
+                class="sapUiTinyMarginEnd"
+            />
+            <ObjectNumber
+                number="{ path: 'recon>/paymentsTotal', formatter: '.formatAmount' }"
+                state="{ path: 'recon>/paymentsTotal', formatter: '.formatValueState' }"
+            />
+        </HBox>
+    </VBox>
+</core:FragmentDefinition>

@@ -1,0 +1,2 @@
+sap.ui.define(["sap/ui/core/UIComponent","sap/ui/Device","supplieropenitems/model/models"],function(e,i,t){"use strict";return e.extend("supplieropenitems.Component",{metadata:{manifest:"json"},init:function(){e.prototype.init.apply(this,arguments);this.getRouter().initialize();this.setModel(t.createDeviceModel(),"device");document.body.classList.add(i.support.touch?"sapUiSizeCozy":"sapUiSizeCompact")}})});
+//# sourceMappingURL=Component.js.map

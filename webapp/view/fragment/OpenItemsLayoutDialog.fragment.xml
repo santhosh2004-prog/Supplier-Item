@@ -1,0 +1,77 @@
+<!--
+    ⚠️ Saved layouts here are persisted client-side (localStorage — see
+    _fetchOpenItemsSavedLayouts / _saveOpenItemsLayoutsToStorage in
+    Main.controller.js), not backend OData — there's no LayoutSet entity
+    for this app. Same dialog shape/flow as any backend-backed layout
+    picker, just a different persistence layer underneath.
+-->
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Dialog
+        id="oiLayoutDialog"
+        title="Select Layout"
+        draggable="true"
+        resizable="false"
+        contentWidth="24rem"
+    >
+        <VBox class="sapUiSmallMargin">
+            <Table
+                id="oiLayoutTable"
+                items="{oiLayoutModel>/layouts}"
+                mode="SingleSelectLeft"
+                includeItemInSelection="true"
+                selectionChange=".onOpenItemsLayoutSelectionChange"
+                noDataText="No saved layouts yet."
+            >
+                <columns>
+                    <Column>
+                        <Text text="Layout Name" />
+                    </Column>
+                    <Column hAlign="Center">
+                        <Text text="Default?" />
+                    </Column>
+                    <Column hAlign="Center">
+                        <Text text="Delete" />
+                    </Column>
+                </columns>
+                <items>
+                    <ColumnListItem>
+                        <cells>
+                            <Text text="{oiLayoutModel>LayoutName}" />
+                            <CheckBox
+                                selected="{ path: 'oiLayoutModel>Default', formatter: '.isOpenItemsDefaultChecked' }"
+                                enabled="false"
+                            />
+                            <Button
+                                icon="sap-icon://delete"
+                                type="Reject"
+                                press=".onOpenItemsDeleteLayout"
+                            />
+                        </cells>
+                    </ColumnListItem>
+                </items>
+            </Table>
+            <CheckBox
+                id="oiSetDefaultCheckbox"
+                text="Set as Default Layout"
+                class="sapUiSmallMarginTop"
+            />
+        </VBox>
+        <beginButton>
+            <Button
+                text="Apply"
+                type="Accept"
+                press=".onOpenItemsApplyLayout"
+            />
+        </beginButton>
+        <endButton>
+            <Button
+                text="Cancel"
+                type="Reject"
+                press=".onOpenItemsCancelLayout"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

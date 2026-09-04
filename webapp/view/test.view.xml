@@ -1,0 +1,517 @@
+<mvc:View
+    controllerName="supplieropenitems.controller.Main"
+    height="100%"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:core="sap.ui.core"
+    xmlns="sap.m"
+    xmlns:f="sap.f"
+    xmlns:fb="sap.ui.comp.filterbar"
+    xmlns:viz="sap.viz.ui5.controls"
+    xmlns:viz.data="sap.viz.ui5.data"
+    xmlns:viz.feeds="sap.viz.ui5.controls.common.feeds"
+>
+    <f:DynamicPage
+        id="dynamicPage"
+        headerExpanded="true"
+        preserveHeaderStateOnScroll="true"
+        showFooter="false"
+        fitContent="true"
+    >
+        <!-- ── HEADER (Filter Bar) — unchanged ── -->
+        <f:header>
+            <f:DynamicPageHeader>
+                <f:content>
+                    <fb:FilterBar
+                        id="filterbar"
+                        persistencyKey="SupplierOpenItemsFB"
+                        useToolbar="false"
+                        search=".onSearch"
+                        filterChange=".onFilterChange"
+                    >
+                        <fb:filterGroupItems>
+                            <fb:FilterGroupItem
+                                name="CompanyCode"
+                                label="Company Code"
+                                groupName="Basic"
+                                visibleInFilterBar="true"
+                                mandatory="true"
+                            >
+                                <fb:control>
+                                    <Input
+                                        id="inputBukrs"
+                                        name="CompanyCode"
+                                        placeholder="Enter or select company code"
+                                        width="100%"
+                                        showValueHelp="true"
+                                        valueHelpRequest=".onCompCodeF4"
+                                        liveChange=".onFilterChange"
+                                    />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <fb:FilterGroupItem
+                                name="Supplier"
+                                label="Supplier"
+                                groupName="Basic"
+                                visibleInFilterBar="true"
+                            >
+                                <fb:control>
+                                    <Input
+                                        id="inputLifnr"
+                                        name="Supplier"
+                                        placeholder="Enter or select supplier"
+                                        width="100%"
+                                        showValueHelp="true"
+                                        valueHelpRequest=".onSupplierF4"
+                                        liveChange=".onFilterChange"
+                                    />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <fb:FilterGroupItem
+                                name="KeyDate"
+                                label="Key Date"
+                                groupName="Basic"
+                                visibleInFilterBar="true"
+                            >
+                                <fb:control>
+                                    <DatePicker
+                                        id="inputKeyDate"
+                                        name="KeyDate"
+                                        placeholder="dd.MM.yyyy"
+                                        valueFormat="yyyy-MM-dd"
+                                        displayFormat="dd.MM.yyyy"
+                                        width="100%"
+                                        change=".onFilterChange"
+                                    />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+                        </fb:filterGroupItems>
+                    </fb:FilterBar>
+                </f:content>
+            </f:DynamicPageHeader>
+        </f:header>
+
+        <!-- ── CONTENT : Master–Detail built with HBox / VBox ── -->
+        <f:content>
+            <HBox
+                id="masterDetailBox"
+                height="100%"
+                width="100%"
+                renderType="Bare"
+                class="masterDetailBox"
+            >
+                <!-- ════════ LEFT PANEL : Categories from ReconSet (26% width) ════════ -->
+                <VBox
+                    id="masterPanel"
+                    height="100%"
+                    renderType="Bare"
+                    class="masterPanel"
+                >
+                    <layoutData>
+                        <FlexItemData
+                            baseSize="26%"
+                            growFactor="0"
+                            shrinkFactor="0"
+                        />
+                    </layoutData>
+
+                    <!-- Category table — takes all remaining vertical space -->
+                    <ScrollContainer
+                        height="100%"
+                        vertical="true"
+                        horizontal="false"
+                        class="masterScroll"
+                    >
+                        <layoutData>
+                            <FlexItemData growFactor="1" />
+                        </layoutData>
+
+                        <Table
+                            id="reconTable"
+                            class="reconMasterTable"
+                            mode="SingleSelectMaster"
+                            selectionChange=".onReconSelect"
+                            items="{recon>/items}"
+                            sticky="ColumnHeaders"
+                            noDataText="Press Go to load categories"
+                        >
+                            <columns>
+                                <!-- Balanced split for the narrow panel -->
+                                <Column width="34%">
+                                    <Label
+                                        text="Category"
+                                        design="Bold"
+                                    />
+                                </Column>
+                                <Column
+                                    hAlign="End"
+                                    width="33%"
+                                >
+                                    <Label
+                                        text="Invoice Amount"
+                                        design="Bold"
+                                    />
+                                </Column>
+                                <Column
+                                    hAlign="End"
+                                    width="33%"
+                                >
+                                    <Label
+                                        text="Advance Amount"
+                                        design="Bold"
+                                    />
+                                </Column>
+                            </columns>
+
+                            <items>
+                                <ColumnListItem type="Navigation">
+                                    <cells>
+                                        <!-- "Trade Payables - X" rendered as just "X" -->
+                                        <Text
+                                            text="{
+                                                path: 'recon>Txt50',
+                                                formatter: '.formatCategory'
+                                            }"
+                                            wrapping="true"
+                                        />
+                                        <ObjectNumber
+                                            number="{
+                                                path: 'recon>InvAmt',
+                                                formatter: '.formatAmount'
+                                            }"
+                                        />
+                                        <ObjectNumber
+                                            number="{
+                                                path: 'recon>AdvAmt',
+                                                formatter: '.formatAmount'
+                                            }"
+                                        />
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+                        </Table>
+                    </ScrollContainer>
+
+                    <!-- Totals pinned at the bottom of the left panel -->
+                    <Toolbar class="masterTotalsBar">
+                        <Label
+                            text="Total"
+                            design="Bold"
+                        />
+                        <ToolbarSpacer />
+                        <Label text="Invoice:" />
+                        <ObjectNumber
+                            number="{
+                                path: 'recon>/totals/InvAmt',
+                                formatter: '.formatAmount'
+                            }"
+                            emphasized="true"
+                        />
+                        <Label
+                            text="Advance:"
+                            class="sapUiSmallMarginBegin"
+                        />
+                        <ObjectNumber
+                            number="{
+                                path: 'recon>/totals/AdvAmt',
+                                formatter: '.formatAmount'
+                            }"
+                            emphasized="true"
+                        />
+                    </Toolbar>
+                </VBox>
+
+                <!-- ════════ RIGHT PANEL : chart (top) + future section (bottom) ════════ -->
+                <VBox
+                    id="detailPanel"
+                    height="100%"
+                    renderType="Bare"
+                    class="detailPanel"
+                >
+                    <layoutData>
+                        <FlexItemData growFactor="1" />
+                    </layoutData>
+
+                    <!-- Placeholder — shown while no data is loaded -->
+                    <VBox
+                        id="chartPlaceholder"
+                        height="100%"
+                        renderType="Bare"
+                        justifyContent="Center"
+                        alignItems="Center"
+                        visible="{= ${recon>/count} === 0 }"
+                    >
+                        <core:Icon
+                            src="sap-icon://bar-chart"
+                            size="3rem"
+                            color="#c2c9d1"
+                            class="sapUiSmallMarginBottom"
+                        />
+                        <Title
+                            text="No data yet"
+                            level="H3"
+                        />
+                        <Text
+                            text="Press Go to load categories and see the chart here."
+                            class="detailPlaceholderText"
+                        />
+                    </VBox>
+
+                    <!-- ── Outer box (LIGHT BLUE) : chart wrapper + future section ── -->
+                    <VBox
+                        id="chartBox"
+                        renderType="Bare"
+                        class="chartBox"
+                        visible="{= ${recon>/count} > 0 }"
+                    >
+                        <layoutData>
+                            <FlexItemData
+                                growFactor="1"
+                                shrinkFactor="1"
+                            />
+                        </layoutData>
+
+                        <!-- 1. Chart wrapper (LIGHT PINK) — top ~40% (shortened to red-line height) -->
+                        <VBox
+                            id="vizWrapBox"
+                            renderType="Bare"
+                            class="vizWrapBox"
+                        >
+                            <layoutData>
+                                <FlexItemData
+                                    baseSize="40%"
+                                    growFactor="0"
+                                    shrinkFactor="1"
+                                />
+                            </layoutData>
+
+                            <viz:VizFrame
+                                id="reconChart"
+                                vizType="column"
+                                width="100%"
+                                height="100%"
+                                uiConfig="{applicationSet:'fiori'}"
+                            >
+                                <viz:layoutData>
+                                    <FlexItemData
+                                        growFactor="1"
+                                        shrinkFactor="1"
+                                    />
+                                </viz:layoutData>
+
+                                <viz:dataset>
+                                    <viz.data:FlattenedDataset
+                                        data="{recon>/chart}"
+                                    >
+                                        <viz.data:dimensions>
+                                            <viz.data:DimensionDefinition
+                                                name="Category"
+                                                value="{recon>category}"
+                                            />
+                                        </viz.data:dimensions>
+                                        <viz.data:measures>
+                                            <viz.data:MeasureDefinition
+                                                name="Invoice Amount"
+                                                value="{recon>invoice}"
+                                            />
+                                            <viz.data:MeasureDefinition
+                                                name="Advance Amount"
+                                                value="{recon>advance}"
+                                            />
+                                        </viz.data:measures>
+                                    </viz.data:FlattenedDataset>
+                                </viz:dataset>
+
+                                <viz:feeds>
+                                    <viz.feeds:FeedItem
+                                        uid="valueAxis"
+                                        type="Measure"
+                                        values="Invoice Amount,Advance Amount"
+                                    />
+                                    <viz.feeds:FeedItem
+                                        uid="categoryAxis"
+                                        type="Dimension"
+                                        values="Category"
+                                    />
+                                </viz:feeds>
+                            </viz:VizFrame>
+                        </VBox>
+
+                        <!-- 2. Vendor detail section — bottom ~60% — filled dynamically on row click -->
+                        <VBox
+                            id="futureBox"
+                            renderType="Bare"
+                            class="futureBox vendorBox"
+                        >
+                            <layoutData>
+                                <FlexItemData
+                                    growFactor="1"
+                                    shrinkFactor="1"
+                                />
+                            </layoutData>
+
+                            <!-- Placeholder — no category selected yet -->
+                            <VBox
+                                height="100%"
+                                justifyContent="Center"
+                                alignItems="Center"
+                                visible="{= !${recon>/vendorsLoaded} &amp;&amp; !${recon>/vendorsBusy} }"
+                            >
+                                <Text
+                                    text="Select a category above to view vendor details."
+                                    class="detailPlaceholderText"
+                                />
+                            </VBox>
+
+                            <!-- Busy state while VENDERSet is loading -->
+                            <BusyIndicator
+                                visible="{recon>/vendorsBusy}"
+                                size="2rem"
+                                class="sapUiMediumMarginTop vendorBusy"
+                            />
+
+                            <!-- Vendor table for the selected category -->
+                            <VBox
+                                height="100%"
+                                renderType="Bare"
+                                visible="{= ${recon>/vendorsLoaded} &amp;&amp; !${recon>/vendorsBusy} }"
+                            >
+                                <Toolbar class="vendorTableHeaderBar">
+                                    <Title
+                                        text="{recon>/selectedCategory}"
+                                        level="H4"
+                                    />
+                                </Toolbar>
+
+                                <!-- Scrollable body — chart above stays fixed/visible,
+                                     only this section scrolls when rows overflow -->
+                                <ScrollContainer
+                                    height="100%"
+                                    vertical="true"
+                                    horizontal="false"
+                                    class="vendorScroll"
+                                >
+                                    <layoutData>
+                                        <FlexItemData growFactor="1" />
+                                    </layoutData>
+
+                                    <Table
+                                        id="vendorTable"
+                                        class="vendorDetailTable"
+                                        items="{recon>/vendors}"
+                                        noDataText="No vendor records for this category."
+                                        sticky="ColumnHeaders"
+                                    >
+                                        <columns>
+                                            <Column>
+                                                <Label
+                                                    text="Vendor"
+                                                    design="Bold"
+                                                />
+                                            </Column>
+                                            <Column>
+                                                <Label
+                                                    text="Name"
+                                                    design="Bold"
+                                                />
+                                            </Column>
+                                            <Column hAlign="End">
+                                                <Label
+                                                    text="Invoice Amount"
+                                                    design="Bold"
+                                                />
+                                            </Column>
+                                            <Column hAlign="End">
+                                                <Label
+                                                    text="Advance Amount"
+                                                    design="Bold"
+                                                />
+                                            </Column>
+                                            <Column hAlign="End">
+                                                <Label
+                                                    text="Net Amount"
+                                                    design="Bold"
+                                                />
+                                            </Column>
+                                        </columns>
+
+                                        <items>
+                                            <ColumnListItem>
+                                                <cells>
+                                                    <Text
+                                                        text="{recon>LIFNR}"
+                                                    />
+                                                    <Text
+                                                        text="{recon>NAME1}"
+                                                    />
+                                                    <ObjectNumber
+                                                        number="{
+                                                            path: 'recon>INV_AMT',
+                                                            formatter: '.formatAmount'
+                                                        }"
+                                                    />
+                                                    <ObjectNumber
+                                                        number="{
+                                                            path: 'recon>ADV_AMT',
+                                                            formatter: '.formatAmount'
+                                                        }"
+                                                    />
+                                                    <ObjectNumber
+                                                        number="{
+                                                            path: 'recon>NET_AMT',
+                                                            formatter: '.formatAmount'
+                                                        }"
+                                                    />
+                                                </cells>
+                                            </ColumnListItem>
+                                        </items>
+                                    </Table>
+                                </ScrollContainer>
+
+                                <!-- Totals pinned at the bottom of the vendor panel -->
+                                <Toolbar class="vendorTotalsBar">
+                                    <Label
+                                        text="Total"
+                                        design="Bold"
+                                    />
+                                    <ToolbarSpacer />
+                                    <Label text="Invoice:" />
+                                    <ObjectNumber
+                                        number="{
+                                            path: 'recon>/vendorTotals/InvAmt',
+                                            formatter: '.formatAmount'
+                                        }"
+                                        emphasized="true"
+                                    />
+                                    <Label
+                                        text="Advance:"
+                                        class="sapUiSmallMarginBegin"
+                                    />
+                                    <ObjectNumber
+                                        number="{
+                                            path: 'recon>/vendorTotals/AdvAmt',
+                                            formatter: '.formatAmount'
+                                        }"
+                                        emphasized="true"
+                                    />
+                                    <Label
+                                        text="Net:"
+                                        class="sapUiSmallMarginBegin"
+                                    />
+                                    <ObjectNumber
+                                        number="{
+                                            path: 'recon>/vendorTotals/NetAmt',
+                                            formatter: '.formatAmount'
+                                        }"
+                                        emphasized="true"
+                                    />
+                                </Toolbar>
+                            </VBox>
+                        </VBox>
+                    </VBox>
+                </VBox>
+            </HBox>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

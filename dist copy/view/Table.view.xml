@@ -1,0 +1,85 @@
+<mvc:View
+    controllerName="supplieropenitems.controller.Table"
+    height="100%"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Page
+        id="tablePage"
+        showHeader="false"
+    >
+        <content>
+            <VBox class="tableRoot">
+                <!-- ── TOP BAR ──────────────────────────────────────────────── -->
+                <HBox
+                    class="detailTopBar"
+                    alignItems="Center"
+                    justifyContent="SpaceBetween"
+                >
+                    <HBox alignItems="Center">
+                        <Button
+                            icon="sap-icon://nav-back"
+                            type="Transparent"
+                            press=".onNavBack"
+                            class="topBarBackBtn"
+                        />
+                        <VBox class="topBarVendorBox">
+                            <Text
+                                id="tableVendorName"
+                                text=""
+                                class="topVendorName"
+                            />
+                            <Text
+                                id="tableVendorMeta"
+                                text=""
+                                class="topVendorMeta"
+                            />
+                        </VBox>
+                    </HBox>
+                    <Button
+                        text="Back"
+                        type="Reject"
+                        press=".onNavBack"
+                    />
+                </HBox>
+
+                <core:HTML content="&lt;hr class='pageDivider'/&gt;" />
+
+                <!-- ── SECTION TITLE + BADGE ─────────────────────────────────── -->
+                <HBox
+                    class="sectionTitleBar"
+                    alignItems="Center"
+                >
+                    <core:HTML
+                        id="tileTypeBadge"
+                        content=""
+                    />
+                    <Text
+                        id="sectionTitle"
+                        text=""
+                        class="sectionTitle"
+                    />
+                </HBox>
+
+                <!-- ── SUMMARY STRIP ─────────────────────────────────────────── -->
+                <HBox
+                    class="summaryStrip"
+                    alignItems="Center"
+                >
+                    <Text
+                        id="summaryText"
+                        text=""
+                        class="summaryText"
+                    />
+                </HBox>
+
+                <!-- ── TABLE (rendered by controller) ───────────────────────── -->
+                <VBox
+                    id="tableContainer"
+                    class="tableWrap"
+                />
+            </VBox>
+        </content>
+    </Page>
+</mvc:View>

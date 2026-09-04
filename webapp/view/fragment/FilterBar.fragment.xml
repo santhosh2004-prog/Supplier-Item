@@ -1,0 +1,154 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <!-- ═══ Shared Company Code / Supplier / From Date / To Date / Go filter
+         bar — used identically by Main.view.xml (chart/dashboard) and
+         Detail.view.xml (master-detail Supplier page), so both screens keep
+         exactly the same filter row instead of two copies that could drift
+         apart. Control ids are unprefixed, so they merge straight into
+         whichever view includes this fragment — every `this.byId("inputBukrs")`
+         etc. in Main.controller.js keeps working unchanged on either view. ═══ -->
+    <HBox
+        id="filterbar"
+        class="customFilterBar sapUiSizeCompact"
+        alignItems="End"
+        wrap="Wrap"
+    >
+        <VBox class="filterField filterFieldNarrow">
+            <Label
+                required="true"
+                labelFor="inputBukrs"
+                text="Company Code"
+            />
+            <Input
+                id="inputBukrs"
+                name="CompanyCode"
+                placeholder="company code"
+                showValueHelp="true"
+                valueHelpRequest=".onCompCodeF4"
+                liveChange=".onFilterChange"
+                submit=".onSearch"
+            />
+        </VBox>
+
+        <VBox class="filterField filterFieldSupplier">
+            <Label
+                labelFor="inputLifnr"
+                text="Supplier"
+            />
+            <Input
+                id="inputLifnr"
+                name="Supplier"
+                placeholder="supplier NO"
+                showValueHelp="true"
+                valueHelpRequest=".onSupplierF4"
+                liveChange=".onFilterChange"
+                submit=".onSearch"
+                enabled="{= !${recon>/totalShareBusinessActive} }"
+            />
+        </VBox>
+
+        <VBox class="filterField filterFieldDate">
+            <Label
+                labelFor="inputKeyDate"
+                text="From Date"
+                visible="{
+                    parts: [
+                        'recon>/masterDetailMode',
+                        'recon>/mdShowAdvance',
+                        'recon>/mdShowPendingInvoices',
+                        'recon>/mdShowGenericModule',
+                        'recon>/mdShowTransactions',
+                        'recon>/mdShowPayments',
+                        'recon>/mdShowDebitNotes',
+                        'recon>/mdShowTotalPO',
+                        'recon>/mdShowPendingPO',
+                        'recon>/mdShowLotsAccepted',
+                        'recon>/mdShowLotsReceived',
+                        'recon>/mdShowRejectedQty',
+                        'recon>/mdShowAcceptedQty',
+                        'recon>/mdShowAudQty',
+                        'recon>/mdShowMatReceipts',
+                        'recon>/mdShowVendorReturns',
+                        'recon>/mdShowShareOfBusiness'
+                    ],
+                    formatter: '.isFromDateEnabled'
+                }"
+
+            />
+            <DatePicker
+                id="inputKeyDate"
+                name="KeyDate"
+                placeholder="From Date"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="dd.MM.yyyy"
+                change=".onFilterChange"
+                visible="{
+                    parts: [
+                        'recon>/masterDetailMode',
+                        'recon>/mdShowAdvance',
+                        'recon>/mdShowPendingInvoices',
+                        'recon>/mdShowGenericModule',
+                        'recon>/mdShowTransactions',
+                        'recon>/mdShowPayments',
+                        'recon>/mdShowDebitNotes',
+                        'recon>/mdShowTotalPO',
+                        'recon>/mdShowPendingPO',
+                        'recon>/mdShowLotsAccepted',
+                        'recon>/mdShowLotsReceived',
+                        'recon>/mdShowRejectedQty',
+                        'recon>/mdShowAcceptedQty',
+                        'recon>/mdShowAudQty',
+                        'recon>/mdShowMatReceipts',
+                        'recon>/mdShowVendorReturns',
+                        'recon>/mdShowShareOfBusiness'
+                    ],
+                    formatter: '.isFromDateEnabled'
+                }"
+            />
+        </VBox>
+
+        <VBox class="filterField filterFieldDate">
+            <Label
+                labelFor="inputKeyDateTo"
+                text="To Date"
+            />
+            <DatePicker
+                id="inputKeyDateTo"
+                name="KeyDateTo"
+                placeholder="To Date"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="dd.MM.yyyy"
+                change=".onFilterChange"
+            />
+        </VBox>
+
+        <Button
+            text="Go"
+            type="Emphasized"
+            press=".onSearch"
+            busy="{= ${recon>/busy} || ${recon>/openItemsBusy} }"
+            busyIndicatorDelay="0"
+            class="filterGoBtn"
+        />
+        <VBox class="filterSpacer" />
+        <HBox class="mdExportBtns">
+            <Button
+                icon="sap-icon://refresh"
+                type="Transparent"
+                tooltip="Refresh"
+                text="Refresh"
+                press=".onRefreshMasterDetail"
+            />
+            <Button
+                icon="sap-icon://nav-back"
+                type="Success"
+                text="Back"
+                tooltip="Back to Chart"
+                press=".onBackToChart"
+            />
+        </HBox> 
+    </HBox>
+    
+</core:FragmentDefinition>

@@ -9,12 +9,12 @@ server:
     - name: fiori-tools-proxy
       afterMiddleware: compression
       configuration:
-        ignoreCertErrors: false # If set to true, certificate errors will be ignored. E.g. self-signed certificates will be accepted
+        ignoreCertErrors: true # If set to true, certificate errors will be ignored. E.g. self-signed certificates will be accepted
         ui5:
           path:
             - /resources
             - /test-resources
-          url: https://ui5.sap.com
+          url: https://sapui5.hana.ondemand.com/1.120.49
         backend:
           - path: /sap
             url: http://emsquadev.everestspices.in:8000

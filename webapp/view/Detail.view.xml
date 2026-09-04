@@ -1,609 +1,733 @@
 <mvc:View
     controllerName="supplieropenitems.controller.Detail"
-    height="100%"
     xmlns:mvc="sap.ui.core.mvc"
+    xmlns:f="sap.f"
     xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+    displayBlock="true"
     xmlns="sap.m"
-    xmlns:uxap="sap.uxap"
-    xmlns:viz="sap.viz.ui5.controls"
-    xmlns:viz.data="sap.viz.ui5.data"
-    xmlns:viz.feeds="sap.viz.ui5.controls.common.feeds"
 >
-    <uxap:ObjectPageLayout
-        id="ObjectPageLayout"
-        showTitleInHeaderContent="true"
-        alwaysShowContentHeader="false"
-        preserveHeaderStateOnScroll="false"
-        headerContentPinnable="true"
-        isChildPage="true"
-        upperCaseAnchorBar="false"
+    <!-- ═══ Dedicated Supplier Open Items (master-detail) page, reached via
+         router navTo("Routedetail", {...}) from Main.controller.js's onSearch
+         whenever a Supplier is entered. Same filter bar (shared fragment),
+         same FINANCE/MATERIALS/QUALITY sidebar + panel fragments, same
+         recon model bindings as this content used to have inline in
+         Main.view.xml under masterDetailMode=true — only the container
+         changed, everything else (fragments, controller logic, formatters)
+         is untouched. See Detail.controller.js. ═══ -->
+    <Page
+        id="detailPage"
+        showHeader="false"
+        showFooter="false"
     >
-        <uxap:headerTitle>
-            <uxap:ObjectPageDynamicHeaderTitle>
-                <uxap:heading>
-                    <Title
-                        text="{recon>Txt50}"
-                        level="H3"
-                    />
-                </uxap:heading>
-                <uxap:navigationActions>
-                    <OverflowToolbarButton
-                        type="Transparent"
-                        icon="sap-icon://full-screen"
-                        press=".handleFullScreen"
-                        id="enterFullScreenBtn"
-                        tooltip="Enter Full Screen Mode"
-                        visible="{= !${appView>/actionButtonsInfo/midColumn/fullScreen}}"
-                    />
-                    <OverflowToolbarButton
-                        type="Transparent"
-                        icon="sap-icon://exit-full-screen"
-                        press=".handleExitFullScreen"
-                        id="exitFullScreenBtn"
-                        tooltip="Exit Full Screen Mode"
-                        visible="{= ${appView>/actionButtonsInfo/midColumn/fullScreen}}"
-                    />
-                    <OverflowToolbarButton
-                        type="Transparent"
-                        icon="sap-icon://table-view"
-                        press=".handleCategoryTable"
-                        id="categoryTableBtn"
-                        tooltip="Show Category Table"
-                    />
-                    <OverflowToolbarButton
-                        type="Transparent"
-                        icon="sap-icon://decline"
-                        press=".handleClose"
-                        tooltip="Close"
-                    />
-                </uxap:navigationActions>
-            </uxap:ObjectPageDynamicHeaderTitle>
-        </uxap:headerTitle>
+        <content>
+            <Panel
+                id="detailContentPanel"
+                expandable="false"
+                expanded="true"
+                class="sapUiNoContentPadding"
+                height="100%"
+                width="100%"
+            >
+                <headerToolbar>
+                    <Toolbar
+                        height="auto"
+                        class="dashboardHeaderToolbar"
+                    >
+                        <VBox width="100%">
+                            <core:Fragment
+                                fragmentName="supplieropenitems.view.fragment.FilterBar"
+                                type="XML"
+                            />
+                        </VBox>
+                    </Toolbar>
+                </headerToolbar>
 
-        <uxap:headerContent />
+                <!-- vertical="true" as a SAFETY NET, not the primary
+                     scroller: mdSidebarPanel/mdRightContentArea are each
+                     their own fixed-height (.mdLayoutRow's calc(100vh -
+                     7rem)), independently-scrolling box, so in the normal
+                     case this outer container never has anything to
+                     scroll (its content already fits within height="100%")
+                     and stays inert. It only engages if that 7rem guess is
+                     ever still too generous for a particular browser
+                     chrome/zoom/window size — catching the leftover
+                     overflow instead of silently clipping content with
+                     nothing left to scroll into, which is what happened
+                     with this set to "false": once .mdLayoutRow's height
+                     didn't perfectly match the real available space, the
+                     tail of the sidebar list rendered below the visible
+                     window with no scroller anywhere able to reach it. A
+                     small risk of the two columns' scroll looking "linked"
+                     in that rare fallback case is a fair trade for content
+                     never being permanently unreachable. -->
+               
+                    <VBox
+                        id="detailContentWrapper"
+                        class="contentWrapperFixed"
+                    >
+                        <BusyIndicator
+                            visible="{recon>/busy}"
+                            size="2rem"
+                            class="sapUiLargeMarginTop"
+                        />
 
-        <uxap:sections>
-            <!-- ════════ TAB 1 : Chart ════════ -->
-            <uxap:ObjectPageSection title="Chart">
-                <uxap:subSections>
-                    <uxap:ObjectPageSubSection>
-                        <uxap:blocks>
-                            <VBox class="dashboardWrapper">
-                                <!-- ═══ Bar Chart Card ═══ -->
-                                <VBox class="dashboardCard sapUiSmallMarginTop">
-                                    <Text
-                                        text="Amount by Reconciliation Category"
-                                        class="dashboardCardTitle"
-                                    />
-                                    <VBox
-                                        renderType="Bare"
-                                        height="440px"
-                                        class="sapUiTinyMarginTop"
+                        <VBox
+                            id="masterDetailCard"
+                            visible="{= !${recon>/busy} &amp;&amp; ${recon>/masterDetailMode}}"
+                            class="mdRightPanel mdRightPanelFullWidth dashPanelBox"
+                        >
+                            <HBox
+                                id="mdLayoutRow"
+                                class="mdLayoutRow"
+                                alignItems="Stretch"
+                            >
+                                <!-- ═══ Docked "Modules" sidebar — Gmail-style: pinned open by
+                                     default, the "Modules" button collapses/expands it in place
+                                     instead of floating a popover, so the panel on the right
+                                     (chart + line items) reflows to fill the freed width. ═══ -->
+                                <VBox
+                                    id="mdSidebarPanel"
+                                    visible="{recon>/mdLeftPanelOpen}"
+                                    class="mdSidebarPanel"
+                                >
+                                    <HBox
+                                        justifyContent="SpaceBetween"
+                                        alignItems="Center"
+                                        class="mdSidebarHeaderRow sapUiSizeCompact"
                                     >
-                                        <viz:VizFrame
-                                            id="reconChart"
-                                            vizType="column"
-                                            width="100%"
-                                            height="100%"
-                                            uiConfig="{applicationSet:'fiori'}"
+                                        
+                                    </HBox>
+                                    <List
+                                        showSeparators="None"
+                                        class="modulesList"
+                                    >
+                                        <CustomListItem class="mdSidebarGroupHeaderLI">
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarGroupBanner mdBannerBlue"
+                                            >
+                                                <Text
+                                                    text="FINANCE (FI)"
+                                                    class="mdSidebarGroupTitle"
+                                                />
+                                                <Button
+                                            icon="sap-icon://navigation-left-arrow"
+                                            type="Transparent"
+                                            tooltip="Close"
+                                            class='mdSidebarGroupTitle'
+                                            press=".onMdLeftPanelMenuPress"
+                                        />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onOpeningBalancePress"
+                                            class="mdSidebarRowLI"
                                         >
-                                            <viz:dataset>
-                                                <viz.data:FlattenedDataset
-                                                    data="{recon>/chart}"
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
                                                 >
-                                                    <viz.data:dimensions>
-                                                        <viz.data:DimensionDefinition
-                                                            name="Category"
-                                                            value="{ path: 'recon>category', formatter: '.wrapCategoryLabel' }"
-                                                        />
-                                                    </viz.data:dimensions>
-                                                    <viz.data:measures>
-                                                        <viz.data:MeasureDefinition
-                                                            name="Invoice Amount"
-                                                            value="{recon>invoice}"
-                                                        />
-                                                        <viz.data:MeasureDefinition
-                                                            name="Advance Amount"
-                                                            value="{recon>advance}"
-                                                        />
-                                                    </viz.data:measures>
-                                                </viz.data:FlattenedDataset>
-                                            </viz:dataset>
-                                            <viz:feeds>
-                                                <viz.feeds:FeedItem
-                                                    uid="valueAxis"
-                                                    type="Measure"
-                                                    values="Invoice Amount,Advance Amount"
+                                                    <Text
+                                                        text="Opening Balance"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/openingBalanceValue', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
                                                 />
-                                                <viz.feeds:FeedItem
-                                                    uid="categoryAxis"
-                                                    type="Dimension"
-                                                    values="Category"
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onTransactionsPress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Transactions"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/transactionsTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
                                                 />
-                                            </viz:feeds>
-                                        </viz:VizFrame>
-                                    </VBox>
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onAdvanceBalancePress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Advance Balance"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/advanceTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onDebitNotesPress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Debit Notes"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/debitNotesTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onModuleRowPress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Credit notes" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Credit Notes"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onPaymentsRowPress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Payments"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/paymentsTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+
+                                        </CustomListItem>
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onPendingInvoicesPress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Pending Invoices"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/pendingInvoicesTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem class="mdSidebarGroupHeaderLI">
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarGroupBanner mdBannerAmber"
+                                            >
+                                                <Text
+                                                    text="MATERIALS (MM)"
+                                                    class="mdSidebarGroupTitle"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        
+
+                                        <CustomListItem type="Active" press=".onTotalPOPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Total PO value" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Total PO Value"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                     text="{ path: 'recon>/totalPOTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem type="Active" press=".onPendingPOPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Pending PO" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Pending PO"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/pendingPOTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem type="Active" press=".onMaterialReceiptsPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Material receipts" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Material Receipts"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/matReceiptsTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem type="Active" press=".onVendorReturnsPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Vendor returns" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Vendor Returns"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{= ${recon>/vendorReturnsCount} + ' items' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        
+
+                                        <CustomListItem type="Active" press=".onShareOfBusinessPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Share of business" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Share of Business"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{ path: 'recon>/shareOfBusinessQtyPercent', formatter: '.formatShareOfBusinessSidebarValue' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem class="mdSidebarGroupHeaderLI">
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarGroupBanner mdBannerPurple"
+                                            >
+                                                <Text
+                                                    text="QUALITY (QM)"
+                                                    class="mdSidebarGroupTitle"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem type="Active" press=".onLotsReceivedPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Lots received" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Lots Received"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{= ${recon>/lotsReceivedCount} + ' lots' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem type="Active" press=".onLotsAcceptedPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Lots accepted" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Lots Accepted "
+                                                        class="mdSidebarRowLabel "
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{= ${recon>/lotsAcceptedCount} + ' lots' }"
+                                                    class="mdSidebarRowValue "
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+                                        <CustomListItem type="Active" press=".onAcceptedQtyPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Accepted qty" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Accepted Qty"
+                                                        class="mdSidebarRowLabel mdSidebarRowLabelGreen"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{= ${recon>/acceptedQtyCount} + ' lots' }"
+                                                    class="mdSidebarRowLabel mdSidebarRowLabelGreen"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem type="Active" press=".onRejectedQtyPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="Rejected qty" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Rejected Qty"
+                                                        class="mdSidebarRowLabel mdSidebarRowLabelRed"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{= ${recon>/rejectedQtyCount} + ' lots' }"
+                                                    class="mdSidebarRowLabel mdSidebarRowLabelRed"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                        <CustomListItem type="Active" press=".onAudQtyPress" class="mdSidebarRowLI">
+                                            <customData>
+                                                <core:CustomData key="moduleLabel" value="AUD qty" />
+                                            </customData>
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="AUD Qty"
+                                                        class="mdSidebarRowLabel mdSidebarRowLabelBlue"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                    text="{= ${recon>/audQtyCount} + ' lots' }"
+                                                    class="mdSidebarRowLabel mdSidebarRowLabelBlue"
+                                                />
+                                            </HBox>
+                                        </CustomListItem>
+                                    </List>
                                 </VBox>
 
-                                <!-- ═══ Bottom Row: Top 5 List + Donut ═══ -->
-                                <HBox
-                                    wrap="Wrap"
-                                    class="sapUiSmallMarginTop dashboardBottomRow"
+                                <VBox
+                                    id="mdRightContentArea"
+                                    class="mdRightContentArea"
                                 >
-                                    <!-- Top 5 Categories by Net Amount -->
-                                    <VBox
-                                        class="dashboardCard dashboardCardHalf"
+                                    <!-- Reopen button for the docked "Modules" sidebar — only
+                                         thing rendered when the panel is closed, since the
+                                         close button lives inside the panel itself. -->
+                                    <!-- <HBox
+                                        justifyContent="Start"
+                                        class="mdSidebarReopenRow"
+                                        visible="{= !${recon>/mdLeftPanelOpen} }"
                                     >
-                                        <Text
-                                            text="Top 5 Categories by Net Amount"
-                                            class="dashboardCardTitle"
+                                        <Button
+                                            id="mdLeftPanelMenuButton"
+                                            icon="sap-icon://navigation-right-arrow"
+                                            type="Transparent"
+                                            tooltip="Open"
+                                            class="mdSidebarGroupTitle"
+                                            press=".onMdLeftPanelMenuPress"
                                         />
-                                        <List
-                                            items="{recon>/top5Categories}"
-                                            mode="None"
-                                            class="top5List sapUiTinyMarginTop"
-                                        >
-                                            <CustomListItem class="top5Row">
-                                                <VBox width="100%">
-                                                    <HBox
-                                                        justifyContent="SpaceBetween"
-                                                    >
-                                                        <Text
-                                                            text="{recon>category}"
-                                                            class="top5Label"
-                                                        />
-                                                        <Text
-                                                            text="{ path: 'recon>netAmt', formatter: '.formatAmount' }"
-                                                            class="top5Value"
-                                                        />
-                                                    </HBox>
-                                                    <ProgressIndicator
-                                                        percentValue="{recon>percent}"
-                                                        displayValue=" "
-                                                        state="{recon>state}"
-                                                        class="top5Bar sapUiTinyMarginTop"
-                                                    />
-                                                </VBox>
-                                            </CustomListItem>
-                                        </List>
-                                    </VBox>
+                                    </HBox> -->
 
-                                    <!-- Net Amount Distribution (Donut) -->
-                                    <VBox
-                                        class="dashboardCard dashboardCardHalf"
+                                    <!-- <HBox
+                                        justifyContent="SpaceBetween"
+                                        alignItems="Center"
+                                        class="mdRightHeaderRow"
                                     >
-                                        <Text
-                                            text="Net Amount Distribution"
-                                            class="dashboardCardTitle"
-                                        />
                                         <HBox
                                             alignItems="Center"
-                                            class="sapUiTinyMarginTop"
+                                            class="mdRightHeaderTitleRow"
                                         >
-                                            <VBox
-                                                renderType="Bare"
-                                                height="230px"
-                                                width="55%"
-                                            >
-                                                <viz:VizFrame
-                                                    id="netDonutChart"
-                                                    vizType="donut"
-                                                    width="100%"
-                                                    height="100%"
-                                                    uiConfig="{applicationSet:'fiori'}"
-                                                >
-                                                    <viz:dataset>
-                                                        <viz.data:FlattenedDataset
-                                                            data="{recon>/donut}"
-                                                        >
-                                                            <viz.data:dimensions
-                                                            >
-                                                                <viz.data:DimensionDefinition
-                                                                    name="Category"
-                                                                    value="{recon>category}"
-                                                                />
-                                                            </viz.data:dimensions>
-                                                            <viz.data:measures>
-                                                                <viz.data:MeasureDefinition
-                                                                    name="Net Amount"
-                                                                    value="{recon>absNetAmt}"
-                                                                />
-                                                            </viz.data:measures>
-                                                        </viz.data:FlattenedDataset>
-                                                    </viz:dataset>
-                                                    <viz:feeds>
-                                                        <viz.feeds:FeedItem
-                                                            uid="size"
-                                                            type="Measure"
-                                                            values="Net Amount"
-                                                        />
-                                                        <viz.feeds:FeedItem
-                                                            uid="color"
-                                                            type="Dimension"
-                                                            values="Category"
-                                                        />
-                                                    </viz:feeds>
-                                                </viz:VizFrame>
-                                            </VBox>
-                                            <List
-                                                items="{recon>/donut}"
-                                                mode="None"
-                                                class="donutLegend sapUiSmallMarginBegin"
-                                            >
-                                                <CustomListItem
-                                                    class="donutLegendRow"
-                                                >
-                                                    <HBox alignItems="Center">
-                                                        <core:Icon
-                                                            src="sap-icon://circle-task-2"
-                                                            color="{recon>colorHex}"
-                                                            class="donutLegendDot"
-                                                        />
-                                                        <Text
-                                                            text="{recon>category}"
-                                                            class="donutLegendLabel sapUiTinyMarginBegin"
-                                                        />
-                                                        <Text
-                                                            text="{recon>percentLabel}"
-                                                            class="donutLegendPercent sapUiTinyMarginBegin"
-                                                        />
-                                                    </HBox>
-                                                </CustomListItem>
-                                            </List>
-                                        </HBox>
-                                    </VBox>
-                                </HBox>
-
-                                <!-- ═══ KPI Row ═══ -->
-                                <HBox
-                                    wrap="Wrap"
-                                    class="kpiRow"
-                                >
-                                    <VBox class="kpiCard kpiCardBlue">
-                                        <HBox alignItems="Center">
-                                            <core:Icon
-                                                src="sap-icon://receipt"
-                                                class="kpiIcon kpiIconBlue"
+                                            <Button
+                                                id="mdLeftPanelMenuButton"
+                                                text="Modules"
+                                                icon="sap-icon://navigation-right-arrow"
+                                                press=".onMdLeftPanelMenuPress"
+                                                visible="{= !${recon>/mdLeftPanelOpen} }"
+                                                ariaHasPopup="Menu"
                                             />
                                             <Text
-                                                text="Invoice Amount"
-                                                class="kpiLabel sapUiTinyMarginBegin"
+                                                text="{= ${recon>/mdShowGenericModule} ? ${recon>/mdGenericModuleLabel} : ( ${recon>/mdShowTransactions} ? 'Transactions' : ( ${recon>/mdShowAdvance} ? 'Advance balance' : ( ${recon>/mdShowDebitNotes} ? 'Debit notes' : ( ${recon>/mdShowPayments} ? 'Payments' : 'Opening balance' ) ) ) ) }"
+                                                class="panelSubTitle mdNoMargin"
                                             />
                                         </HBox>
-                                        <Title
-                                            text="{ path: 'recon>InvAmt', formatter: '.formatAmount' }"
-                                            level="H3"
-                                            class="kpiValue sapUiTinyMarginTop"
-                                        />
-                                        <Text
-                                            text="INR"
-                                            class="kpiUnit"
-                                        />
-                                    </VBox>
-
-                                    <VBox class="kpiCard kpiCardOrange">
-                                        <HBox alignItems="Center">
-                                            <core:Icon
-                                                src="sap-icon://money-bills"
-                                                class="kpiIcon kpiIconOrange"
+                                        <HBox class="mdExportBtns">
+                                            <Button
+                                                icon="sap-icon://refresh"
+                                                type="Transparent"
+                                                tooltip="Refresh"
+                                                press=".onRefreshMasterDetail"
                                             />
-                                            <Text
-                                                text="Advance Amount"
-                                                class="kpiLabel sapUiTinyMarginBegin"
+                                            <Button
+                                                icon="sap-icon://nav-back"
+                                                type="Success"
+                                                tooltip="Back to Chart"
+                                                press=".onBackToChart"
                                             />
                                         </HBox>
-                                        <Title
-                                            text="{ path: 'recon>AdvAmt', formatter: '.formatAmount' }"
-                                            level="H3"
-                                            class="kpiValue sapUiTinyMarginTop"
-                                        />
-                                        <Text
-                                            text="INR"
-                                            class="kpiUnit"
-                                        />
-                                    </VBox>
+                                    </HBox> -->
 
-                                    <VBox class="kpiCard kpiCardGreen">
-                                        <HBox alignItems="Center">
-                                            <core:Icon
-                                                src="sap-icon://sum"
-                                                class="kpiIcon kpiIconGreen"
-                                            />
-                                            <Text
-                                                text="Net Amount"
-                                                class="kpiLabel sapUiTinyMarginBegin"
-                                            />
-                                        </HBox>
-                                        <Title
-                                            text="{
-                                                parts: [
-                                                    { path: 'recon>InvAmt' },
-                                                    { path: 'recon>AdvAmt' }
-                                                ],
-                                                formatter: '.formatNetAmount'
-                                            }"
-                                            level="H3"
-                                            class="kpiValue sapUiTinyMarginTop"
-                                        />
-                                        <Text
-                                            text="INR"
-                                            class="kpiUnit"
-                                        />
-                                    </VBox>
+                                    <!-- ═══ Each right-panel section now lives in its own fragment — same
+                                         model, same visible-flag bindings, just organized as separate
+                                         files instead of one long inline block. ═══ -->
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.GenericModulePanel"
+                                        type="XML"
+                                    />
+                                  
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.OpenItemsPanel"
+                                        type="XML"
+                                    />
+                                     
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.AdvanceBalancePanel"
+                                        type="XML"
+                                    />
+                                     
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.DebitNotesPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.PaymentsPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.TransactionsPanel"
+                                        type="XML"
+                                    />
+                                     <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.Pendinginvoices"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.TotalPOPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.PendingPOPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.LotsAcceptedPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.AcceptedQtyPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.LotsReceivedPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.RejectedQtyPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.AudQtyPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.ShareOfBusinessPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.MatReceiptPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.VendorReturnsPanel"
+                                        type="XML"
+                                    />
 
-                                    <VBox class="kpiCard kpiCardPurple">
-                                        <HBox alignItems="Center">
-                                            <core:Icon
-                                                src="sap-icon://group"
-                                                class="kpiIcon kpiIconPurple"
-                                            />
-                                            <Text
-                                                text="No. of Vendors"
-                                                class="kpiLabel sapUiTinyMarginBegin"
-                                            />
-                                        </HBox>
-                                        <Title
-                                            text="{= ${recon>vendors} ? ${recon>vendors}.length : 0 }"
-                                            level="H3"
-                                            class="kpiValue sapUiTinyMarginTop"
-                                        />
-                                        <Text
-                                            text="Vendors"
-                                            class="kpiUnit"
-                                        />
-                                    </VBox>
-                                </HBox>
-                            </VBox>
-                        </uxap:blocks>
-                    </uxap:ObjectPageSubSection>
-                </uxap:subSections>
-            </uxap:ObjectPageSection>
 
-            <!-- ════════ TAB 2 : Vendors ════════ -->
-            <uxap:ObjectPageSection title="Vendors">
-                <uxap:subSections>
-                    <uxap:ObjectPageSubSection>
-                        <uxap:blocks>
-                            <VBox width="100%">
-                                <BusyIndicator
-                                    visible="{recon>vendorsBusy}"
-                                    size="2rem"
-                                    class="sapUiMediumMarginTop"
-                                />
 
-                                <!-- ═══ Vendor Filter (LIFNR / Name) ═══ -->
-                                <Toolbar
-                                    visible="{recon>vendorsLoaded}"
-                                    class="vendorFilterBar sapUiTinyMarginBottom"
-                                >
-                                    <SearchField
-                                        id="vendorFilterInput"
-                                        placeholder="Filter by Vendor Code or Name"
-                                        width="18rem"
-                                        liveChange=".onVendorFilterChange"
-                                        search=".onVendorFilterChange"
-                                    />
-                                    <ToolbarSpacer />
-                                    <Text
-                                        text="{
-                                            path: 'recon>vendors',
-                                            formatter: '.formatVendorCount'
-                                        }"
-                                        class="vendorFilterCount"
-                                    />
-                                </Toolbar>
 
-                                <Table
-                                    id="vendorTable"
-                                    items="{recon>vendors}"
-                                    noDataText="No vendor records for this category."
-                                    sticky="ColumnHeaders"
-                                    visible="{recon>vendorsLoaded}"
-                                    fixedLayout="false"
-                                    popinLayout="GridSmall"
-                                >
-                                    <columns>
-                                        <Column width="8rem">
-                                            <Label
-                                                text="Vendor"
-                                                design="Bold"
-                                                class="boldHeaderLabel"
-                                            />
-                                        </Column>
-                                        <Column
-                                            width="auto"
-                                            minScreenWidth="Small"
-                                            demandPopin="true"
-                                            popinDisplay="Inline"
-                                        >
-                                            <Label
-                                                text="Name"
-                                                design="Bold"
-                                                class="boldHeaderLabel"
-                                            />
-                                        </Column>
-                                        <Column
-                                            width="10rem"
-                                            hAlign="End"
-                                        >
-                                            <Label
-                                                text="Invoice Amt"
-                                                design="Bold"
-                                                class="boldHeaderLabel"
-                                            />
-                                        </Column>
-                                        <Column
-                                            width="10rem"
-                                            hAlign="End"
-                                            minScreenWidth="Medium"
-                                            demandPopin="true"
-                                            popinDisplay="Inline"
-                                        >
-                                            <Label
-                                                text="Advance Amt"
-                                                design="Bold"
-                                                class="boldHeaderLabel"
-                                            />
-                                        </Column>
-                                        <Column
-                                            width="10rem"
-                                            hAlign="End"
-                                        >
-                                            <Label
-                                                text="Net Amt"
-                                                design="Bold"
-                                                class="boldHeaderLabel"
-                                            />
-                                        </Column>
-                                    </columns>
-                                    <items>
-                                        <ColumnListItem
-                                            type="Navigation"
-                                            press=".onVendorPress"
-                                        >
-                                            <cells>
-                                                <ObjectIdentifier
-                                                    title="{recon>LIFNR}"
-                                                    text="{recon>NAME1}"
-                                                />
-                                                <Text text="{recon>NAME1}" />
-                                                <ObjectNumber
-                                                    number="{ path: 'recon>INV_AMT', formatter: '.formatAmount' }"
-                                                />
-                                                <ObjectNumber
-                                                    number="{ path: 'recon>ADV_AMT', formatter: '.formatAmount' }"
-                                                />
-                                                <ObjectNumber
-                                                    number="{ path: 'recon>NET_AMT', formatter: '.formatAmount' }"
-                                                />
-                                            </cells>
-                                        </ColumnListItem>
-                                    </items>
-                                </Table>
-                                <Toolbar
-                                    visible="{recon>vendorsLoaded}"
-                                    class="vendorTotalsBar"
-                                >
-                                    <Label
-                                        text="Total"
-                                        design="Bold"
-                                        class="boldHeaderLabel"
-                                    />
-                                    <ToolbarSpacer />
-                                    <Label
-                                        text="Invoice:"
-                                        class="boldHeaderLabel"
-                                    />
-                                    <ObjectNumber
-                                        number="{ path: 'recon>vendorTotals/InvAmt', formatter: '.formatAmount' }"
-                                        emphasized="true"
-                                    />
-                                    <Label
-                                        text="Advance:"
-                                        class="boldHeaderLabel sapUiSmallMarginBegin"
-                                    />
-                                    <ObjectNumber
-                                        number="{ path: 'recon>vendorTotals/AdvAmt', formatter: '.formatAmount' }"
-                                        emphasized="true"
-                                    />
-                                    <Label
-                                        text="Net:"
-                                        class="boldHeaderLabel sapUiSmallMarginBegin"
-                                    />
-                                    <ObjectNumber
-                                        number="{ path: 'recon>vendorTotals/NetAmt', formatter: '.formatAmount' }"
-                                        emphasized="true"
-                                    />
-                                </Toolbar>
-                            </VBox>
-                        </uxap:blocks>
-                    </uxap:ObjectPageSubSection>
-                </uxap:subSections>
-            </uxap:ObjectPageSection>
-
-            <!-- ════════ TAB 3 : Open Items (Two summary tiles: RE / Non-RE) ════════ -->
-            <uxap:ObjectPageSection
-                title="Open Items"
-                id="openItemsSection"
-                visible="{recon>/openItemsTabVisible}"
-            >
-                <uxap:subSections>
-                    <uxap:ObjectPageSubSection>
-                        <uxap:blocks>
-                            <VBox width="100%">
-                                <BusyIndicator
-                                    visible="{recon>/openItemsBusy}"
-                                    size="2rem"
-                                    class="sapUiMediumMarginTop"
-                                />
-
-                                <HBox
-                                    wrap="Wrap"
-                                    visible="{= !${recon>/openItemsBusy} }"
-                                >
-                                    <!-- ═══ RE Summary Tile ═══ -->
-                                    <GenericTile
-                                        id="reSummaryTile"
-                                        width="13rem"
-                                        height="8rem"
-                                        header="RE Documents"
-                                        subheader="Type: RE"
-                                        frameType="TwoByOne"
-                                        press=".onSummaryTilePress"
-                                        class="sapUiTinyMarginEnd sapUiTinyMarginBottom"
-                                    >
-                                        <customData>
-                                            <core:CustomData
-                                                key="docType"
-                                                value="RE"
-                                            />
-                                        </customData>
-                                        <TileContent
-                                            unit="Docs"
-                                            footer="{ path: 'recon>/reNetTotal', formatter: '.formatSummaryFooter' }"
-                                        >
-                                            <Title
-                                                text="{recon>/reCount}"
-                                                level="H3"
-                                                class="sapUiTinyMarginTop"
-                                            />
-                                        </TileContent>
-                                    </GenericTile>
-
-                                    <!-- ═══ Non-RE Summary Tile ═══ -->
-                                    <GenericTile
-                                        id="nonReSummaryTile"
-                                        width="13rem"
-                                        height="8rem"
-                                        header="Non-RE Documents"
-                                        subheader="Type: Non-RE"
-                                        frameType="TwoByOne"
-                                        press=".onSummaryTilePress"
-                                        class="sapUiTinyMarginEnd sapUiTinyMarginBottom"
-                                    >
-                                        <customData>
-                                            <core:CustomData
-                                                key="docType"
-                                                value="NONRE"
-                                            />
-                                        </customData>
-                                        <TileContent
-                                            unit="Docs"
-                                            footer="{ path: 'recon>/nonReNetTotal', formatter: '.formatSummaryFooter' }"
-                                        >
-                                            <Title
-                                                text="{recon>/nonReCount}"
-                                                level="H3"
-                                                class="sapUiTinyMarginTop"
-                                            />
-                                        </TileContent>
-                                    </GenericTile>
-                                </HBox>
-                            </VBox>
-                        </uxap:blocks>
-                    </uxap:ObjectPageSubSection>
-                </uxap:subSections>
-            </uxap:ObjectPageSection>
-        </uxap:sections>
-    </uxap:ObjectPageLayout>
+                                </VBox>
+                            </HBox>
+                        </VBox>
+                    </VBox>
+             
+            </Panel>
+        </content>
+    </Page>
 </mvc:View>

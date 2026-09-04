@@ -1,0 +1,302 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ Advance balance panel : shown in place of Line items after the
+         "Advance balance" module row is pressed. Calls VendBalAdvSet for
+         the current Company Code/Supplier/key date, same stat-tile +
+         table layout as Transactions — no bar chart. ═══ -->
+    <VBox visible="{recon>/mdShowAdvance}" class="mdPanelAnimate">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButtonAdvance"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+            <!-- ═══ Identity + Advance amount + Advance items, all kept in
+                 this one tile — same layout as the Total PO value panel's
+                 identity tile (see TotalPOPanel.fragment.xml): identity
+                 full-width across the top, a horizontal divider, then
+                 Advance amount / Advance items side by side below, split
+                 by a vertical divider. ═══ -->
+            <VBox
+                visible="{= ${recon>/advanceBusy} || ${recon>/advanceItems}.length > 0 }"
+                class="mdStatTile1 mdStatTileNeutral mdPaymentsIdentityTile"
+            >
+                <HBox class="mdPaymentsTileCols">
+                    <VBox class="mdPaymentsTileCol">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <Text
+                                text="Advance Amount"
+                                class="panelSubTitle mdNoMargin textLeft"
+                            />
+                            <core:Icon
+                                src="sap-icon://trend-up"
+                                class="mdStatIcon mdStatIconBlue"
+                            />
+                        </HBox>
+                        <Text
+                            text="{ path: 'recon>/advanceTotal', formatter: '.formatBalanceValue' }"
+                            class="mdStatValue"
+                        />
+                    </VBox>
+                    <VBox class="mdPaymentsTileCol mdPaymentsTileColRight">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <Text
+                                text="Advance Items"
+                                class="panelSubTitle mdNoMargin textLeft "
+                            />
+                            <core:Icon
+                                src="sap-icon://list"
+                                class="mdStatIcon mdStatIconGreen"
+                            />
+                        </HBox>
+                        <Text
+                            text="{= ${recon>/advanceItems}.length }"
+                            class="mdStatValue"
+                        />
+                    </VBox>
+                </HBox>
+            </VBox>
+            <!-- ═══ Total Qty Balance / Qty Balance Amont — Contract-only
+                 totals (advanceContractQty/advanceContractTotal), i.e.
+                 pendingpoSet rows filtered to Bstyp === "K" (Contract),
+                 not every pendingpoSet row (which also includes plain
+                 POs, Bstyp "F") — shown here too per request; not this
+                 panel's own data (VendBalAdvSet has no quantity field of
+                 its own to show instead). Preloaded by _loadSidebarTotals's
+                 pendingpoSet read, same as every other sidebar total, so
+                 these are populated as soon as the supplier is searched.
+                 Same one-tile/two-column layout as the Advance balance
+                 tile above, just without its own identity header. ═══ -->
+            <VBox
+                visible="{= ${recon>/advanceBusy} || ${recon>/advanceItems}.length > 0 }"
+                class="mdStatTile1 mdStatTileNeutral mdPaymentsIdentityTile"
+            >
+                <HBox class="mdPaymentsTileCols">
+                    <VBox class="mdPaymentsTileCol">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <Text
+                                text="Total Qty Balance"
+                                class="panelSubTitle mdNoMargin textLeft"
+                            />
+                            <core:Icon
+                                src="sap-icon://trend-up"
+                                class="mdStatIcon mdStatIconBlue"
+                            />
+                        </HBox>
+                        <Text
+                            text="{ path: 'recon>/advanceContractQty', formatter: '.formatAmount' }"
+                            class="mdStatValue"
+                        />
+                    </VBox>
+                    <VBox class="mdPaymentsTileCol mdPaymentsTileColRight">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <Text
+                                text="Qty Balance Amount"
+                                class="panelSubTitle mdNoMargin textLeft "
+                            />
+                            <core:Icon
+                                src="sap-icon://money-bills"
+                                class="mdStatIcon mdStatIconGreen"
+                            />
+                        </HBox>
+                        <Text
+                            text="{ path: 'recon>/advanceContractTotal', formatter: '.formatBalanceValue' }"
+                            class="mdStatValue"
+                        />
+                    </VBox>
+                </HBox>
+            </VBox>
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="advanceTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="advanceTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/advanceBusy} &amp;&amp; ${recon>/advanceItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Advance Balance Data"
+            description="{= 'No advance balance items found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+        <!-- <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+            visible="{= ${recon>/advanceBusy} || ${recon>/advanceItems}.length > 0 }"
+        >
+            <Text
+                text="{= 'Advance Balance (' + ${recon>/advanceItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="advanceTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="advanceTable" />
+                    </customData>
+                </Button>
+                
+            </HBox>
+        </HBox> -->
+
+        <table:Table
+            id="advanceTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/advanceItems}"
+            busy="{recon>/advanceBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/advanceBusy} || ${recon>/advanceItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="12"
+            noData="No advance balance items found."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <!-- ═══ customData key="colId" — same shared colId scheme as
+                     masterDetailTable; oiCol5 (Status) is included for
+                     schema parity with the other tables even though
+                     VendBalAdvSet doesn't return a clearing document, so it
+                     always renders "Open" here — dropped or reordered like
+                     any other column via Column Settings. ═══ -->
+                <table:Column width="20%" sortProperty="Belnr" filterProperty="Belnr">
+                    <table:label>
+                        <Label text="Document" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Belnr}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="15%" sortProperty="Budat" filterProperty="Budat">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="30%" sortProperty="Blart" filterProperty="Blart">
+                    <table:label>
+                        <Label text="Type" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Blart}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="20%"
+                    hAlign="End"
+                    sortProperty="NetAmt"
+                    filterProperty="NetAmt"
+                >
+                    <table:label>
+                        <Label text="Amount" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectNumber number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="15%"
+                    hAlign="End"
+                    sortProperty="Augbl"
+                    filterProperty="Augbl"
+                >
+                    <table:label>
+                        <Label text="Status" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectStatus
+                            text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                            state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                        />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

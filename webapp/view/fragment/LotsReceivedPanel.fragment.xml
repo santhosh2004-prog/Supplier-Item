@@ -1,0 +1,285 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ Lots received panel : shown in place of Line items after the
+         "Lots received" module row (QUALITY (QM) group) is pressed. Calls
+         LotRecSet for the current Supplier over the searched From/To Date
+         range (FromDate/ToDate — LotRecSet's own filter names, keyed by
+         Lifnr only, no Bukrs). Chart is a fixed ten-bar set — A/A1-A5
+         (blue) and R/R1-R3 (red) — see LOTS_RECEIVED_CODES in
+         Main.controller.js. ═══ -->
+    <VBox visible="{recon>/mdShowLotsReceived}" class="mdPanelAnimate">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButtonLotsReceived"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+            <!-- ═══ Identity + Total received qty + Total lots received, all
+                 kept in this one tile — same layout as the AUD qty panel's
+                 identity tile: identity full-width across the top, a
+                 horizontal divider, then Total received qty / Total lots
+                 received side by side below, split by a vertical
+                 divider. ═══ -->
+            <VBox
+                visible="{= ${recon>/lotsReceivedBusy} || ${recon>/lotsReceivedItems}.length > 0 }"
+                class="mdStatTile1 mdStatTileNeutral mdPaymentsIdentityTile"
+            >
+             
+
+                <HBox class="mdPaymentsTileCols">
+                    <VBox class="mdPaymentsTileCol">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <HBox alignItems="Center" class="mdStatTileContent">
+                                <Text
+                                    text="Total Received Qty :"
+                                    class="panelSubTitle mdNoMargin textLeft"
+                                />
+                                <Text
+                                    text="{ path: 'recon>/lotsReceivedTotal', formatter: '.formatBalanceValue' }"
+                                    class="panelSubValue mdNoMargin openingBalanceValue"
+                                />
+                            </HBox>
+                            <core:Icon
+                                src="sap-icon://trend-up"
+                                class="mdStatIcon mdStatIconBlue"
+                            />
+                        </HBox>
+                    </VBox>
+                    <VBox class="mdPaymentsTileCol mdPaymentsTileColRight">
+                        <HBox
+                            justifyContent="SpaceBetween"
+                            alignItems="Center"
+                        >
+                            <HBox alignItems="Center" class="mdStatTileContent">
+                                <Text
+                                    text="Total Lots Received :"
+                                    class="panelSubTitle mdNoMargin textLeft "
+                                />
+                                <Text
+                                    text="{= ${recon>/lotsReceivedItems}.length }"
+                                    class="panelSubValue mdNoMargin openingBalanceValue"
+                                />
+                            </HBox>
+                            <core:Icon
+                                src="sap-icon://list"
+                                class="mdStatIcon mdStatIconGreen"
+                            />
+                        </HBox>
+                    </VBox>
+                </HBox>
+            </VBox>
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="lotsReceivedTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="lotsReceivedTable" />
+                    </customData>
+                </Button>
+            </HBox>
+            
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/lotsReceivedBusy} &amp;&amp; ${recon>/lotsReceivedItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Received Lots Data"
+            description="{= 'No received lots found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+        <!-- ═══ Vertical bar chart — fixed ten-bar set (A/A1-A5 blue,
+             R/R1-R3 red — see LOTS_RECEIVED_CODES), full width, stacked
+             above the Line items table, same layout/markup as the Opening
+             balance panel's "Last 12 Months Balance" chart (see
+             OpenItemsPanel.fragment.xml: mdChartColumn mdChartColumnFullWidth
+             + mdBarChartRow), just keyed by usage-decision code instead of
+             calendar month. ═══ -->
+        <VBox
+            visible="{= ${recon>/lotsReceivedBusy} || ${recon>/lotsReceivedItems}.length > 0 }"
+            class="mdChartColumn mdChartColumnFullWidth"
+        >
+            <Text
+                text="Lots Received by Code"
+                class="panelSubTitle"
+            />
+            <core:HTML
+                id="mdLotsReceivedBarChartHtml"
+                content="&lt;div id='mdLotsReceivedBarChartContainer' class='mdBarChartRow'&gt;&lt;/div&gt;"
+                afterRendering=".onMdLotsReceivedBarChartHtmlRendered"
+            />
+        </VBox>
+
+        <!-- <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+            visible="{= ${recon>/lotsReceivedBusy} || ${recon>/lotsReceivedItems}.length > 0 }"
+        >
+            <Text
+                text="{= 'Lots Received (' + ${recon>/lotsReceivedItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="lotsReceivedTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="lotsReceivedTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </HBox> -->
+
+        <table:Table
+            id="lotsReceivedTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/lotsReceivedItems}"
+            busy="{recon>/lotsReceivedBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/lotsReceivedBusy} || ${recon>/lotsReceivedItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="7"
+            noData="No received lots found."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <table:Column width="18%" sortProperty="Prueflos" filterProperty="Prueflos">
+                    <table:label>
+                        <Label text="Lot Number" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Prueflos}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="10%" sortProperty="Werks" filterProperty="Werks">
+                    <table:label>
+                        <Label text="Plant" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Werks}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="14%" sortProperty="Enstehdat" filterProperty="Enstehdat">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>Enstehdat', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="14%" sortProperty="Matnr" filterProperty="Matnr">
+                    <table:label>
+                        <Label text="Material" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Matnr}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="12%" sortProperty="Charg" filterProperty="Charg">
+                    <table:label>
+                        <Label text="Batch" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Charg}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="8%" sortProperty="Vcode" filterProperty="Vcode">
+                    <table:label>
+                        <Label text="Code" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Vcode}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol6" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="12%"
+                    hAlign="End"
+                    sortProperty="Losmenge"
+                    filterProperty="Losmenge"
+                >
+                    <table:label>
+                        <Label text="Lot Quantity" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectNumber number="{ path: 'recon>Losmenge', formatter: '.formatAmount' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol7" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

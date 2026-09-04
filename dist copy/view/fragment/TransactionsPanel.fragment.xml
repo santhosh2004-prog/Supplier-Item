@@ -1,0 +1,146 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <!-- ═══ Transactions panel : shown in place of Line items after the "Transactions" module row is pressed.
+         No bar chart here — just the same identity/Balance value/count stat
+         tiles as the Opening balance panel, but sourced from the
+         transactions data, followed directly by the table. ═══ -->
+    <VBox visible="{recon>/mdShowTransactions}">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <VBox class="mdStatTile mdStatTileNeutral">
+                <Text
+                    text="{recon>/mdLifnr}"
+                    class="panelSubTitle mdNoMargin"
+                />
+                <Text
+                    text="{recon>/mdSupplierName}"
+                    class="panelSubTitle"
+                />
+            </VBox>
+            <VBox class="mdStatTile mdStatTileBlue">
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <Text
+                        text="Transaction amount"
+                        class="mdStatLabel"
+                    />
+                    <core:Icon
+                        src="sap-icon://wallet"
+                        class="mdStatIcon mdStatIconBlue"
+                    />
+                </HBox>
+                <Text
+                    text="{ path: 'recon>/transactionsTotal', formatter: '.formatBalanceValue' }"
+                    class="mdStatValue"
+                />
+            </VBox>
+            <VBox class="mdStatTile mdStatTileGreen">
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <Text
+                        text="Transactions"
+                        class="mdStatLabel"
+                    />
+                    <core:Icon
+                        src="sap-icon://list"
+                        class="mdStatIcon mdStatIconGreen"
+                    />
+                </HBox>
+                <Text
+                    text="{= ${recon>/transactionItems}.length }"
+                    class="mdStatValue"
+                />
+            </VBox>
+        </FlexBox>
+
+        <HBox
+            justifyContent="SpaceBetween"
+            alignItems="Center"
+            class="mdRightHeaderRow"
+        >
+            <Text
+                text="{= 'Transactions (' + ${recon>/transactionItems}.length + ' records)' }"
+                class="panelSubTitle mdLineItemsTitle mdNoMargin"
+            />
+            <!-- <Button
+                icon="sap-icon://nav-back"
+                type="Success"
+                tooltip="Back to Line items"
+                press=".onBackFromTransactions"
+            /> -->
+        </HBox>
+
+        <VBox class="mdTableScrollWrap">
+            <Table
+                id="transactionsTable"
+                items="{recon>/transactionItems}"
+                noDataText="No transactions found for this period."
+                sticky="ColumnHeaders"
+                class="mdLineItemsTable"
+            >
+                <columns>
+                    <Column>
+                        <Label
+                            text="Document"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column>
+                        <Label
+                            text="Date"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column>
+                        <Label
+                            text="Type"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column hAlign="End">
+                        <Label
+                            text="Amount"
+                            design="Bold"
+                        />
+                    </Column>
+                    <Column hAlign="End">
+                        <Label
+                            text="Status"
+                            design="Bold"
+                        />
+                    </Column>
+                </columns>
+                <items>
+                    <ColumnListItem type="Inactive">
+                        <cells>
+                            <Text
+                                text="{recon>Belnr}"
+                            />
+                            <Text
+                                text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }"
+                            />
+                            <Text
+                                text="{recon>Blart}"
+                            />
+                            <ObjectNumber
+                                number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }"
+                            />
+                            <ObjectStatus
+                                text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                                state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                            />
+                        </cells>
+                    </ColumnListItem>
+                </items>
+            </Table>
+        </VBox>
+    </VBox>
+</core:FragmentDefinition>

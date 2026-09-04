@@ -1,0 +1,38 @@
+<!--
+    Multi-select checkbox filter popover, opened by the "Filter" button next
+    to Column Settings/Select Layout on a line-items table's toolbar (see
+    onLineItemsFilterPress in Main.controller.js). Which fixed list of
+    values it shows is driven per-table by _oiFilterFieldMap, not hardcoded
+    here, so the same popover can be reused by other panels later.
+-->
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Popover
+        id="oiFilterPopover"
+        title="{oiFilterModel>/label}"
+        placement="Bottom"
+        contentWidth="14rem"
+    >
+        <List
+            id="oiFilterList"
+            mode="MultiSelect"
+            includeItemInSelection="true"
+            items="{ path: 'oiFilterModel>/values' }"
+            selectionChange=".onOpenItemsFilterSelectionChange"
+        >
+            <StandardListItem title="{oiFilterModel>text}" />
+        </List>
+        <footer>
+            <Toolbar>
+                <ToolbarSpacer />
+                <Button
+                    text="Clear"
+                    type="Transparent"
+                    press=".onOpenItemsFilterClear"
+                />
+            </Toolbar>
+        </footer>
+    </Popover>
+</core:FragmentDefinition>

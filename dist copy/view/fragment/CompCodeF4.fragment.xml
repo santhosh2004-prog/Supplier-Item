@@ -1,0 +1,16 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <SelectDialog
+        id="compCodeDialog"
+        title="Select Company Code"
+        search=".onCompCodeSearch"
+        confirm=".onCompCodeConfirm"
+        cancel=".onCompCodeDialogClose"
+        noDataText="No company codes found"
+        growing="true"
+        growingThreshold="50"
+        rememberSelections="false"
+    />
+</core:FragmentDefinition>

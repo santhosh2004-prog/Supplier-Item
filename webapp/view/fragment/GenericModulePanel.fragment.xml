@@ -1,0 +1,39 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <!-- ═══ Generic placeholder panel : shown for module rows that don't have
+         a dedicated backend/view wired up yet, so pressing them still
+         navigates the right panel instead of doing nothing. ═══ -->
+    <VBox
+        visible="{recon>/mdShowGenericModule}"
+        class="mdGenericModulePanel mdPanelAnimate"
+    >
+        <HBox
+            justifyContent="Start"
+            class="mdSidebarReopenRow"
+            visible="{= !${recon>/mdLeftPanelOpen} }"
+        >
+            <Button
+                id="mdLeftPanelMenuButtonGeneric"
+                icon="sap-icon://navigation-right-arrow"
+                type="Transparent"
+                tooltip="Open"
+                class="mdSidebarGroupTitle"
+                press=".onMdLeftPanelMenuPress"
+            />
+        </HBox>
+        <core:Icon
+            src="sap-icon://document-text"
+            class="mdGenericModuleIcon"
+        />
+        <Text
+            text="{= ${recon>/mdGenericModuleLabel} }"
+            class="panelSubTitle"
+        />
+        <Text
+            text="This section is not available yet."
+            class="mdGenericModuleHint"
+        />
+    </VBox>
+</core:FragmentDefinition>
