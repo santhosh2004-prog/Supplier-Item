@@ -170,7 +170,7 @@
             selectionMode="None"
             enableColumnReordering="false"
             visibleRowCountMode="Auto"
-            minAutoRowCount="13"
+            minAutoRowCount="14"
             noData="No material receipts found."
             class="mdLineItemsTable mdGridTable"
         >
@@ -183,7 +183,7 @@
                         <Text text="{recon>Mblnr}" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol1" />
+                        <core:CustomData key="colId" value="col14" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="14%" sortProperty="Budat_mkpf" filterProperty="Budat_mkpf">
@@ -194,7 +194,7 @@
                         <Text text="{ path: 'recon>Budat_mkpf', formatter: '.formatOpenItemDate' }" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol2" />
+                        <core:CustomData key="colId" value="col15" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="12%" sortProperty="Werks" filterProperty="Werks">
@@ -205,7 +205,7 @@
                         <Text text="{recon>Werks}" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol3" />
+                        <core:CustomData key="colId" value="col16" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="16%" sortProperty="Ebeln" filterProperty="Ebeln">
@@ -216,7 +216,7 @@
                         <Text text="{recon>Ebeln}" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol4" />
+                        <core:CustomData key="colId" value="col1" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="14%" sortProperty="Matnr" filterProperty="Matnr">
@@ -227,7 +227,7 @@
                         <Text text="{recon>Matnr}" wrapping="false" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol5" />
+                        <core:CustomData key="colId" value="col5" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="10%" sortProperty="Bwart" filterProperty="Bwart">
@@ -238,7 +238,7 @@
                         <Text text="{recon>Bwart}" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol6" />
+                        <core:CustomData key="colId" value="col17" />
                     </table:customData>
                 </table:Column>
                 <table:Column
@@ -254,7 +254,7 @@
                         <Text text="{= ${recon>Menge} + ' ' + ${recon>Meins} }" textAlign="End" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol7" />
+                        <core:CustomData key="colId" value="col6" />
                     </table:customData>
                 </table:Column>
             </table:columns>

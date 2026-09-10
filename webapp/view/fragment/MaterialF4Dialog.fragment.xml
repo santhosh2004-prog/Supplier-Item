@@ -1,0 +1,89 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <Dialog
+        id="sobMaterialF4Dialog"
+        title="Select Material"
+        type="Standard"
+        state="Standard"
+        contentHeight="600px"
+        contentWidth="90%"
+        horizontalScrolling="false"
+        verticalScrolling="true"
+    >
+        <content>
+            <VBox
+                width="100%"
+                height="100%"
+            >
+                <!-- Search/Filter -->
+                <HBox
+                    alignItems="Center"
+                    justifyContent="SpaceBetween"
+                    class="sapUiSmallMargin"
+                >
+                    <SearchField
+                        id="sobMaterialSearchField"
+                        search=".onSobMaterialF4Search"
+                        width="100%"
+                        placeholder="Search materials..."
+                    />
+                </HBox>
+
+                <!-- Results Table -->
+                <table:Table
+                    id="sobMaterialF4Table"
+                    width="100%"
+                    rows="{recon>/matF4Items}"
+                    busy="{recon>/matF4Busy}"
+                    busyIndicatorDelay="0"
+                    selectionMode="MultiToggle"
+                    visibleRowCountMode="Auto"
+                    minAutoRowCount="10"
+                    noData="No materials found."
+                    rowSelectionChange=".onMaterialF4RowSelect"
+                >
+                    <table:columns>
+                        <table:Column width="25%">
+                            <Label text="Material Number" design="Bold" />
+                            <table:template>
+                                <Text text="{recon>Matnr}" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="50%">
+                            <Label text="Material Description" design="Bold" />
+                            <table:template>
+                                <Text text="{recon>Maktx}" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="25%">
+                            <Label text="Supplier" design="Bold" />
+                            <table:template>
+                                <Text text="{recon>Lifnr}" />
+                            </table:template>
+                        </table:Column>
+                    </table:columns>
+                </table:Table>
+            </VBox>
+        </content>
+
+        <beginButton>
+            <Button
+                text="OK"
+                type="Emphasized"
+                press=".onSobMaterialF4Confirm"
+            />
+        </beginButton>
+
+        <endButton>
+            <Button
+                text="Cancel"
+                press=".onMaterialF4Cancel"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

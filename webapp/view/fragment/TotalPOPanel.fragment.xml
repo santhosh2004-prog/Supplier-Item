@@ -198,7 +198,7 @@
                         <Text text="{recon>Ebeln}" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol1" />
+                        <core:CustomData key="colId" value="col1" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="12%" sortProperty="Bedat" filterProperty="Bedat">
@@ -209,7 +209,7 @@
                         <Text text="{ path: 'recon>Bedat', formatter: '.formatOpenItemDate' }" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol2" />
+                        <core:CustomData key="colId" value="col7" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="23%" sortProperty="Txz01" filterProperty="Txz01">
@@ -220,7 +220,7 @@
                         <Text text="{recon>Txz01}" wrapping="false" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol3" />
+                        <core:CustomData key="colId" value="col8" />
                     </table:customData>
                 </table:Column>
                 <table:Column
@@ -236,7 +236,7 @@
                         <Text text="{= ${recon>Menge} + ' ' + ${recon>Meins} }" textAlign="End" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol4" />
+                        <core:CustomData key="colId" value="col6" />
                     </table:customData>
                 </table:Column>
                 <table:Column
@@ -255,7 +255,7 @@
     />
 </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol5" />
+                        <core:CustomData key="colId" value="col9" />
                     </table:customData>
                 </table:Column>
                 <table:Column
@@ -271,7 +271,7 @@
                         <ObjectNumber number="{ path: 'recon>Netwr', formatter: '.formatAmount' }" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol6" />
+                        <core:CustomData key="colId" value="col21" />
                     </table:customData>
                 </table:Column>
             </table:columns>

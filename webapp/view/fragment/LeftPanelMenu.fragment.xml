@@ -27,12 +27,12 @@
                 type="Active"
                 press=".onTransactionsPress"
             />
-            <StandardListItem
+            <!-- <StandardListItem
                 title="Advance Balance"
                 info="{ path: 'recon>/advanceTotal', formatter: '.formatBalanceValue' }"
                 type="Active"
                 press=".onAdvanceBalancePress"
-            />
+            /> -->
             <StandardListItem
                 title="Debit Notes"
                 info="{ path: 'recon>/debitNotesTotal', formatter: '.formatBalanceValue' }"

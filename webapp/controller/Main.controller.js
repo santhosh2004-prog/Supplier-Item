@@ -1,4 +1,4 @@
-sap.ui.define(
+﻿sap.ui.define(
   [
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/Filter",
@@ -7,6 +7,14 @@ sap.ui.define(
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/core/Fragment",
+    "sap/m/Link",
+    "sap/m/Dialog",
+    "sap/m/VBox",
+    "sap/m/ObjectHeader",
+    "sap/m/ObjectAttribute",
+    "sap/m/BusyIndicator",
+    "sap/ui/core/HTML",
+    "sap/m/Button",
   ],
   function (
     Controller,
@@ -16,17 +24,25 @@ sap.ui.define(
     MessageToast,
     MessageBox,
     Fragment,
+    Link,
+    Dialog,
+    VBox,
+    ObjectHeader,
+    ObjectAttribute,
+    BusyIndicator,
+    HTML,
+    Button,
   ) {
     "use strict";
 
     // Monotonically increasing suffix for the one-shot deferred groups
-    // _saveLayoutToBackend creates per call â€” see there for why.
+    // _saveLayoutToBackend creates per call â€" see there for why.
     var oiLayoutSaveCounter = 0;
 
     /**
      * Fixed set of Vcode bars the Lots received panel's chart always draws,
      * in this order, regardless of which codes the loaded LotRecSet result
-     * actually contains â€” see onLotsReceivedPress/_renderLotsReceivedTypeBarChart.
+     * actually contains â€" see onLotsReceivedPress/_renderLotsReceivedTypeBarChart.
      * A/A1-A5 are "accepted"-style codes; R/R1-R3 are "rejected"-style
      * codes (drawn red). Within the accepted group, A and A4 draw green,
      * the rest (A1/A2/A3/A5) draw the default blue.
@@ -59,23 +75,39 @@ sap.ui.define(
 
     /**
      * Column-id translation between this app's internal scheme ("oiCol1"..
-     * "oiCol15" â€” what _getOpenItemsCellByColumnId/_applyOpenItemsColumnSelection
+     * "oiCol15" â€" what _getOpenItemsCellByColumnId/_applyOpenItemsColumnSelection
      * switch on) and what LayoutSet's Columns field actually stores on the
-     * backend ("col1".."col15", confirmed against a live LayoutSet row).
-     * Plain string ops, no controller state, so these can be used directly
-     * in .map() without a bind.
+     * backend for FI ("col1".."col15", confirmed against a live LayoutSet
+     * row). Plain string ops, no controller state, so these can be used
+     * directly in .map() without a bind.
+     *
+     * Every category's Save/Select Layout round trip goes through these two
+     * (see _mapLayoutSetRow and the payload builder in _saveLayouts), but
+     * MM_QM_COLUMN_DEFS's own ids (totalPOTable/pendingPOTable/
+     * matReceiptsTable/vendorReturnsTable all use a shared "col1".."col27"
+     * numbering, same id = same field wherever it appears across those
+     * four tables) are ALREADY in the exact "col<N>" shape LayoutSet
+     * stores â€" and, not being controller-internal "oiCol<N>" ids, must
+     * NOT be run through the FI oiColN<->colN transform, or a saved MM
+     * layout would come back from the backend rewritten to "oiCol1" etc.,
+     * which doesn't exist in MM_QM_COLUMN_DEFS, and silently apply zero
+     * columns. sCategory is threaded through from both call sites so only
+     * FI ids get transformed; MM/QM ids pass through unchanged in both
+     * directions, since they're already the on-the-wire format.
      */
-    function oiColIdToBackend(sOiColId) {
-      // "oiCol1" -> "col1"
-      return sOiColId.slice(2).toLowerCase();
+    function oiColIdToBackend(sOiColId, sCategory) {
+      // "oiCol1" -> "col1", FI only. MM/QM's own "col<N>" ids go out as-is.
+      return sCategory === "FI" && /^oiCol\d+$/.test(sOiColId)
+        ? sOiColId.slice(2).toLowerCase()
+        : sOiColId;
     }
-    function backendColIdToOi(sBackendColId) {
-      // "col1" -> "oiCol1"
-      return (
-        "oi" +
-        sBackendColId.charAt(0).toUpperCase() +
-        sBackendColId.slice(1).toLowerCase()
-      );
+    function backendColIdToOi(sBackendColId, sCategory) {
+      // "col1" -> "oiCol1", FI only. MM/QM's own "col<N>" ids come back as-is.
+      return sCategory === "FI" && /^col\d+$/.test(sBackendColId)
+        ? "oi" +
+            sBackendColId.charAt(0).toUpperCase() +
+            sBackendColId.slice(1).toLowerCase()
+        : sBackendColId;
     }
 
     return Controller.extend("supplieropenitems.controller.main", {
@@ -89,7 +121,7 @@ sap.ui.define(
     return "redCell";
 },
       /**
-       * Everything onInit used to do EXCEPT the final this.onSearch() call â€”
+       * Everything onInit used to do EXCEPT the final this.onSearch() call â€"
        * pulled out so Detail.controller.js (the routed master-detail page,
        * Routedetail) can run the exact same model/column-map/saved-layout
        * setup from its own onInit, then run its own route-driven load
@@ -102,10 +134,15 @@ sap.ui.define(
           donut: [],
           count: 0,
           busy: false,
+          sidebarBusy: false,
           masterDetailMode: false,
           openingBalanceValue: 0,
           mdPaymentsValue: "â‚¹45.6L",
           mdVsPriorPercent: null,
+          matF4Items: [],
+          matF4Busy: false,
+          sobSelectedMaterials: [],
+          sobAllTotalShareBusinessItems: [],
         });
         this.getView().setModel(this._oReconModel, "recon");
 
@@ -122,14 +159,14 @@ sap.ui.define(
         this._oPaymentsDialog = null;
 
         // Land on the page pre-filled with Company Code 1000, From Date =
-        // start of the current financial year (1 April â€” e.g. today in
+        // start of the current financial year (1 April â€" e.g. today in
         // Jan-Mar 2026 means FY start is 01.04.2025, not 01.04.2026), and
-        // To Date = that same financial-year start too â€” but only for
+        // To Date = that same financial-year start too â€" but only for
         // Opening Balance, the panel this initial load lands on. The first
         // time any OTHER panel (Advance, Debit Notes, ...) is opened this
         // session, _showMdPanel swaps To Date to today instead, as long as
         // it's still sitting at this untouched FY-start default (see
-        // _sFyStartDefault/_bToDateAdjustedForOtherPanel there) â€” then runs
+        // _sFyStartDefault/_bToDateAdjustedForOtherPanel there) â€" then runs
         // the same search Go would. The fields stay fully editable
         // throughout; this just saves the user the first Go click.
         var oToday = new Date();
@@ -151,9 +188,9 @@ sap.ui.define(
         // | "debitnotes" | "payments" | "generic"), so that re-running the
         // search with new dates (Go) re-loads the SAME panel instead of
         // silently dropping back to Opening balance. Only a fresh page load
-        // (this initial value) defaults to Opening balance â€” overwritten
+        // (this initial value) defaults to Opening balance â€" overwritten
         // right below by _restoreUiState() if a previous session's state
-        // (Company Code/Supplier/dates/panel â€” e.g. after saving a layout,
+        // (Company Code/Supplier/dates/panel â€" e.g. after saving a layout,
         // setting one as default, or creating a new one) was persisted.
         this._sActiveMdPanel = "opening";
         this._sActiveMdPanelLabel = "";
@@ -164,11 +201,11 @@ sap.ui.define(
         // as Default and then refreshing the browser lands back on the
         // exact same page instead of resetting to Opening balance with the
         // default FY dates. State is (re-)persisted every time any of those
-        // fields actually changes â€” see _persistUiState.
+        // fields actually changes â€" see _persistUiState.
         this._restoreUiState();
 
         // Column Settings / Select Layout for the Opening balance "Line
-        // items" grid table (masterDetailTable) â€” picker+reorder+save,
+        // items" grid table (masterDetailTable) â€" picker+reorder+save,
         // persisted server-side via LayoutSet (see _ensureLayoutsLoadedForCategory).
         this._oiColumnMap = [
           { id: "oiCol1", label: "Document" },
@@ -193,7 +230,7 @@ sap.ui.define(
         );
 
         // Multi-select checkbox Filter button next to Column Settings/Select
-        // Layout â€” label + fixed list of {key, text} values to show, per
+        // Layout â€" label + fixed list of {key, text} values to show, per
         // table id. Only tables listed here get a working Filter button.
         // Selection is tracked but NOT yet applied to the table (see
         // onOpenItemsFilterSelectionChange).
@@ -210,10 +247,10 @@ sap.ui.define(
             ],
           },
         };
-        // Saved layouts are now scoped by Category (FI/MM/QM) â€” see
+        // Saved layouts are now scoped by Category (FI/MM/QM) â€" see
         // TABLE_CATEGORY/_ensureLayoutsLoadedForCategory further down. All
         // three categories' lists load (and each one's Default applies)
-        // right away at startup, same as FI always did â€” MM/QM used to load
+        // right away at startup, same as FI always did â€" MM/QM used to load
         // lazily only the first time their Column Settings/Select Layout
         // dialog opened, which meant a saved MM/QM default layout never
         // took effect until the user had already opened that dialog once
@@ -237,7 +274,7 @@ sap.ui.define(
        * sessionStorage key used to remember Company Code/Supplier/date
        * range and which Finance/Materials/Quality panel is open, so a
        * browser refresh (or the tab being reopened this session) can land
-       * back on the same page instead of resetting to Opening balance â€”
+       * back on the same page instead of resetting to Opening balance â€"
        * see _persistUiState/_restoreUiState. sessionStorage (not
        * localStorage) so this only survives within the current tab/session,
        * not indefinitely across unrelated future visits.
@@ -248,8 +285,8 @@ sap.ui.define(
        * Snapshots the current Company Code/Supplier/date-range inputs and
        * the active master-detail panel to sessionStorage. Called every time
        * this._sActiveMdPanel is set (i.e. whenever the user switches panels)
-       * so the snapshot is always current by the time anything â€” a Save
-       * Layout, a Set as Default, or a plain browser refresh â€” might need
+       * so the snapshot is always current by the time anything â€" a Save
+       * Layout, a Set as Default, or a plain browser refresh â€" might need
        * to restore it. Silently no-ops if sessionStorage isn't available
        * (e.g. private browsing in some browsers) rather than throwing.
        */
@@ -275,7 +312,7 @@ sap.ui.define(
             }),
           );
         } catch (e) {
-          // sessionStorage unavailable/full â€” staying on the default page
+          // sessionStorage unavailable/full â€" staying on the default page
           // after a refresh is a much smaller problem than crashing onInit.
         }
       },
@@ -305,31 +342,31 @@ sap.ui.define(
        * Supplier/dates/active panel from sessionStorage, or leave onInit's
        * fresh defaults in place. Three situations, three different answers:
        *
-       * 1. Save Layout / Set as Default (onRefreshPage) â€” ALWAYS restore.
+       * 1. Save Layout / Set as Default (onRefreshPage) â€" ALWAYS restore.
        *    These call window.location.reload() themselves specifically so
        *    the saved layout takes effect from a clean onInit; losing the
        *    user's Company Code/Supplier/panel on top of that would be a
        *    regression, not a fresh start. Detected via ALLOW_RESTORE_ONCE_KEY,
        *    which onRefreshPage sets right before reloading (see below).
        *
-       * 2. A genuine manual browser refresh (F5 / Ctrl+R / reload button) â€”
+       * 2. A genuine manual browser refresh (F5 / Ctrl+R / reload button) â€"
        *    restore, matching the original "refresh brings you back to where
        *    you were" behaviour.
        *
-       * 3. The FLP shell's own "back" button / relaunching the app tile â€”
+       * 3. The FLP shell's own "back" button / relaunching the app tile â€"
        *    do NOT restore; land on fresh defaults instead.
        *
        * Distinguishing (2) from (3) is the tricky part: when this app runs
        * inside the shell's iframe (the normal FLP app-hosting model), the
-       * shell's back/relaunch only reloads THIS app's iframe â€” the shell's
-       * own top-level document is untouched â€” whereas a real F5 reloads the
+       * shell's back/relaunch only reloads THIS app's iframe â€" the shell's
+       * own top-level document is untouched â€" whereas a real F5 reloads the
        * whole browser tab, top document included. So a flag stashed on
        * window.top survives case (3) (the shell page never reloaded) but
        * gets wiped in case (2) (the whole tab, and therefore window.top,
        * reloaded from scratch). A plain `window`-level flag can't tell
        * these apart, since it resets to a fresh JS context either way (this
        * app's own iframe reloading is exactly what the flag would see for
-       * BOTH cases) â€” window.top is the one thing that only a real full-tab
+       * BOTH cases) â€" window.top is the one thing that only a real full-tab
        * reload actually clears.
        *
        * Falls back to the same-window flag if window.top isn't reachable
@@ -342,7 +379,7 @@ sap.ui.define(
             return true;
           }
         } catch (e) {
-          // sessionStorage unavailable â€” fall through to the window.top check.
+          // sessionStorage unavailable â€" fall through to the window.top check.
         }
 
         try {
@@ -353,7 +390,7 @@ sap.ui.define(
           oTopWindow.__supplierOpenItemsUiStateInit = true;
           return true;
         } catch (e) {
-          // Cross-origin window.top â€” fall back to the same-window flag
+          // Cross-origin window.top â€" fall back to the same-window flag
           // (won't distinguish shell-back from a real reload in that setup,
           // but that's the same limitation the app already had before this
           // check existed, not a new regression).
@@ -384,7 +421,7 @@ sap.ui.define(
           if (oState.activePanel) this._sActiveMdPanel = oState.activePanel;
           this._sActiveMdPanelLabel = oState.activePanelLabel || "";
         } catch (e) {
-          // Corrupt/inaccessible sessionStorage â€” just keep onInit's
+          // Corrupt/inaccessible sessionStorage â€" just keep onInit's
           // hardcoded defaults instead of crashing onInit.
         }
       },
@@ -452,9 +489,9 @@ sap.ui.define(
         });
 
         // onInit defaults To Date to the financial-year start, but that's
-        // meant for Opening Balance only (sActiveFlag === null â€” see
+        // meant for Opening Balance only (sActiveFlag === null â€" see
         // onOpeningBalancePress's _showMdPanel(null)). The first time any
-        // other panel opens this session, swap To Date to today instead â€”
+        // other panel opens this session, swap To Date to today instead â€"
         // but only if it's still sitting at that untouched FY-start
         // default (a user who already ran a Go with a different date, or
         // whose session restored a saved date, is left alone), and only
@@ -475,7 +512,7 @@ sap.ui.define(
         }
 
         // Supplier (Main.view.xml's inputLifnr) is only locked while the
-        // Total Qty Breakdown view is active â€” switching to ANY panel
+        // Total Qty Breakdown view is active â€" switching to ANY panel
         // (Opening Balance, Debit Notes, Payments, Refresh, ...) must
         // release that lock. onShareOfBusinessPress/_loadShareLifnrBreakdown
         // already reset this explicitly when landing back on Share of
@@ -514,7 +551,7 @@ sap.ui.define(
       onOpeningBalancePress: function () {
         this._sActiveMdPanel = "opening"; this._persistUiState();
         // To Date defaults to the financial-year start for Opening Balance
-        // specifically (see onInit/_showMdPanel) â€” every time the user
+        // specifically (see onInit/_showMdPanel) â€" every time the user
         // comes back to this row, not just on the very first load, so
         // leaving another panel (which swaps To Date to today) and
         // returning here always shows the FY start again, not whatever
@@ -529,7 +566,7 @@ sap.ui.define(
         }
         var sBukrs = this._sBukrs;
         var sLifnr = this._oReconModel.getProperty("/mdLifnr");
-        // OpBalAsOnSet is "balance as on <date>" â€” that date is the To
+        // OpBalAsOnSet is "balance as on <date>" â€" that date is the To
         // Date the user searched with (falling back to From Date when no
         // To Date was entered), not the From Date.
         var sKeyDate = this._sKeyDateTo || this._sKeyDate;
@@ -569,7 +606,7 @@ sap.ui.define(
                 Belnr: o.Belnr,
                 Budat: o.Budat,
                 // OpBalAsOnSet's field is spelled "Docty_dese" (typo baked
-                // into the backend) â€” not "Docty_desc" like the other
+                // into the backend) â€" not "Docty_desc" like the other
                 // entity sets. Confirmed against a live OpBalAsOnSet
                 // response.
                 Blart: o.Docty_dese || o.Blart,
@@ -594,7 +631,7 @@ sap.ui.define(
           },
           error: function (oError) {
             // Same "Data is not Found" business exception handled in
-            // _loadSupplierMasterDetail â€” treat as no data, not a real error.
+            // _loadSupplierMasterDetail â€" treat as no data, not a real error.
             var bNoDataFound = false;
             try {
               var oBody = JSON.parse(oError.responseText);
@@ -619,7 +656,7 @@ sap.ui.define(
       onSearch: function () {
         var sBukrs = this.byId("inputBukrs").getValue().trim();
         // The Supplier field displays "code - Name" once a search has
-        // resolved a name (see _loadSupplierMasterDetail) â€” only the code
+        // resolved a name (see _loadSupplierMasterDetail) â€" only the code
         // before " - " is a valid filter value, so strip the name back off
         // before using it.
         var sLifnr = this.byId("inputLifnr")
@@ -639,7 +676,7 @@ sap.ui.define(
           return;
         }
         // Opening Balance/Advance Balance/Pending Invoices don't filter by
-        // From Date at all (see isFromDateEnabled) â€” only To Date matters
+        // From Date at all (see isFromDateEnabled) â€" only To Date matters
         // there, so a From Date left over from a different panel (or just
         // never touched) shouldn't block the search with an error about a
         // field these three panels don't even use. Gated on masterDetailMode
@@ -670,7 +707,7 @@ sap.ui.define(
 
         // A Supplier NO alongside the Company Code + date range switches into
         // the master-detail layout (Finance/Materials/Quality panel + line
-        // items) â€” that's its own routed page (Detail.view.xml/Routedetail)
+        // items) â€" that's its own routed page (Detail.view.xml/Routedetail)
         // now, not a mode flag on this view, so this navigates there instead
         // of loading it inline. Company Code/Supplier/date range travel as
         // route params (URL-encoded); Detail.controller.js's route-matched
@@ -679,7 +716,7 @@ sap.ui.define(
         // unchanged from this controller). Pressing Go again from the Detail
         // page itself (same .onSearch handler, inherited) re-navigates with
         // whatever new dates were entered, which re-fires patternMatched and
-        // reloads â€” so Go behaves identically on both pages.
+        // reloads â€" so Go behaves identically on both pages.
         if (sLifnr) {
           this.getOwnerComponent()
             .getRouter()
@@ -693,14 +730,14 @@ sap.ui.define(
         }
 
         // No Supplier: this is the plain chart/dashboard search, which only
-        // exists on THIS view (Main/Routemain) â€” e.g. Supplier was cleared
+        // exists on THIS view (Main/Routemain) â€" e.g. Supplier was cleared
         // via "Back to Chart" while sitting on the Detail page mid-navigation.
         // Everything below reaches into Main.view.xml-only controls
         // (dashboardTabHeader, mainScrollContainer, ...) via byId, so if
         // we're not actually on that view, navigate there first instead of
         // letting those byId calls fail against Detail.view.xml's controls.
         // Checked via a control id unique to Main.view.xml (its root Page,
-        // "dynamicPage") rather than getViewName() â€” manifest.json registers
+        // "dynamicPage") rather than getViewName() â€" manifest.json registers
         // this view as "main" (lowercase), not "Main", so a string compare
         // against the view name is one easy typo away from silently always
         // failing and redirecting on every load.
@@ -755,9 +792,9 @@ sap.ui.define(
        * Loads OpBalAsOnSet for a directly-entered Supplier (no category
        * drill-down needed) and switches the page into the master-detail
        * layout: a static Finance/Materials/Quality summary panel on the left
-       * (dummy data â€” no backend for these yet) and the real line items
+       * (dummy data â€" no backend for these yet) and the real line items
        * table on the right. Both the "Balance value" tile and the Line
-       * items table are driven entirely by OpBalAsOnSet â€” OpenItemsSet is
+       * items table are driven entirely by OpBalAsOnSet â€" OpenItemsSet is
        * not used on this page.
        */
       _loadSupplierMasterDetail: function (
@@ -917,7 +954,7 @@ sap.ui.define(
           openItemsTotal: 0,
         });
 
-        // OpBalAsOnSet is "balance as on <date>" â€” that date is the To
+        // OpBalAsOnSet is "balance as on <date>" â€" that date is the To
         // Date the user searched with (falling back to From Date when no
         // To Date was entered), not the From Date.
         var aFilters = [
@@ -939,7 +976,7 @@ sap.ui.define(
             oReconModel.setProperty("/mdSupplierName", sName);
 
             // Show "code - Name" in the Supplier field itself once the
-            // name resolves, instead of leaving the bare numeric code â€”
+            // name resolves, instead of leaving the bare numeric code â€"
             // onSearch strips the " - Name" suffix back off before using
             // this field's value as a filter, so this is display-only.
             if (sName) {
@@ -955,7 +992,7 @@ sap.ui.define(
                 Belnr: o.Belnr,
                 Budat: o.Budat,
                 // OpBalAsOnSet's field is spelled "Docty_dese" (typo baked
-                // into the backend) â€” not "Docty_desc" like the other
+                // into the backend) â€" not "Docty_desc" like the other
                 // entity sets. Confirmed against a live OpBalAsOnSet
                 // response.
                 Blart: o.Docty_dese || o.Blart,
@@ -983,12 +1020,17 @@ sap.ui.define(
             oReconModel.setProperty("/busy", false);
             oReconModel.setProperty("/mdSelectedMonthLabel", "");
             that._renderMonthlyBarChart(0);
+
+            // Preload sidebar totals including transactionperiodSet immediately
+            // after opening balance loads, so all Finance sidebar amounts are
+            // ready before any clicks on Transactions/Advance/Debit Notes/Payments
+            that._loadSidebarTotals(sBukrs, sLifnr, sKeyDate, sKeyDateTo);
           },
           error: function (oError) {
             // Same as PmtSelPrdSet: the backend raises a business exception
             // (HTTP 400, /IWBEP/CM_MGW_RT/022 "Data is not Found") instead of
             // returning 200 with an empty results array when this supplier
-            // simply has no opening balance items for the date â€” treat that
+            // simply has no opening balance items for the date â€" treat that
             // as "no data" (handled by the IllustratedMessage in the view),
             // not a real error toast.
             var bNoDataFound = false;
@@ -1017,7 +1059,7 @@ sap.ui.define(
         });
 
         // Re-running the search (Go) should keep whichever Finance/Materials
-        // row was already open â€” e.g. a user on Payments who only changes
+        // row was already open â€" e.g. a user on Payments who only changes
         // From/To Date and presses Go stays on Payments with the new date
         // range, instead of silently being dropped back to Opening balance.
         // Opening balance itself is already covered by the OpBalAsOnSet read
@@ -1059,7 +1101,7 @@ sap.ui.define(
           case "shareofbusiness":
             // onShareOfBusinessPress always resets to the normal
             // Quantity/Value view (/totalShareBusinessActive false), so if
-            // the Total Qty Breakdown table was showing, re-fire it too â€”
+            // the Total Qty Breakdown table was showing, re-fire it too â€"
             // now with whatever From/To Date the user just changed via Go.
             var bWasTotalShareBusinessActive = this._oReconModel.getProperty(
               "/totalShareBusinessActive",
@@ -1087,17 +1129,6 @@ sap.ui.define(
             break;
           // "opening" (or unset): nothing else to do.
         }
-
-        // Pre-load Transactions / Advance balance / Debit notes / Payments
-        // totals for this supplier + date range right away (in parallel with
-        // everything above), so the Finance (FI) sidebar rows show each
-        // section's amount up front instead of only after that row is
-        // clicked. Opening balance's own total is already covered by the
-        // OpBalAsOnSet read above (/openingBalanceValue). Whichever panel is
-        // actually active (handled by the switch above) still re-fetches and
-        // overwrites its own total with the freshest data, so there's no
-        // conflict â€” this just fills in the other four rows too.
-        this._loadSidebarTotals(sBukrs, sLifnr, sKeyDate, sKeyDateTo);
       },
 
       /**
@@ -1105,7 +1136,7 @@ sap.ui.define(
        * PmtSelPrdSet for the current Company Code/Supplier/date range and
        * stores each one's total into the same model properties their own
        * panels already read (/transactionsTotal, /advanceTotal,
-       * /debitNotesTotal, /paymentsTotal) â€” used to populate the amount
+       * /debitNotesTotal, /paymentsTotal) â€" used to populate the amount
        * shown next to each Finance (FI) sidebar row without requiring the
        * user to click into every section first.
        */
@@ -1113,8 +1144,22 @@ sap.ui.define(
         var oModel = this.getOwnerComponent().getModel();
         var oReconModel = this._oReconModel;
         var sToDate = sKeyDateTo || sKeyDate;
+
+        // Show busy indicator on sidebar while totals load
+        oReconModel.setProperty("/sidebarBusy", true);
+
+        // Track API call completion with a counter - increment for each request,
+        // decrement on each success/error callback; when it reaches 0, all are done
+        var iRequestCount = 0;
+        var fnOnRequestComplete = function () {
+          iRequestCount--;
+          if (iRequestCount === 0) {
+            oReconModel.setProperty("/sidebarBusy", false);
+          }
+        };
+
         // Every sidebar row EXCEPT Opening Balance means "as of today", not
-        // "as of the financial-year start" â€” same rule _showMdPanel/
+        // "as of the financial-year start" â€" same rule _showMdPanel/
         // onOpeningBalancePress use for the panels themselves. Without this,
         // a fresh page load (To Date still sitting at its FY-start default
         // because Opening Balance is the initial panel) preloads every other
@@ -1135,14 +1180,15 @@ sap.ui.define(
         }
 
         // Transactions
+        iRequestCount++;
         var aTxnFilters = [
           new Filter("Bukrs", FilterOperator.EQ, sBukrs),
           new Filter("Lifnr", FilterOperator.EQ, sLifnr),
           new Filter("FromDate", FilterOperator.EQ, new Date(sKeyDate)),
         ];
-        if (sKeyDateTo) {
+        if (sToDate) {
           aTxnFilters.push(
-            new Filter("ToDate", FilterOperator.EQ, new Date(sKeyDateTo)),
+            new Filter("ToDate", FilterOperator.EQ, new Date(sToDate)),
           );
         }
         oModel.read("/transactionperiodSet", {
@@ -1152,16 +1198,19 @@ sap.ui.define(
               "/transactionsTotal",
               sumSigned(oData.results),
             );
+            fnOnRequestComplete();
           },
           error: function () {
             oReconModel.setProperty("/transactionsTotal", 0);
+            fnOnRequestComplete();
           },
         });
 
-        // Advance balance â€” filter field must match onAdvanceBalancePress's
+        // Advance balance â€" filter field must match onAdvanceBalancePress's
         // own VendBalAdvSet read ("Budat", not "BudatTo") so the sidebar
         // total agrees with the detail panel's total instead of silently
         // querying a different/nonexistent field.
+        iRequestCount++;
         oModel.read("/VendBalAdvSet", {
           filters: [
             new Filter("Bukrs", FilterOperator.EQ, sBukrs),
@@ -1170,14 +1219,17 @@ sap.ui.define(
           ],
           success: function (oData) {
             oReconModel.setProperty("/advanceTotal", sumSigned(oData.results));
+            fnOnRequestComplete();
           },
           error: function () {
             oReconModel.setProperty("/advanceTotal", 0);
+            fnOnRequestComplete();
           },
         });
 
-        // Debit notes â€” DebitAmt1Set's Dmbtr is already a plain positive
+        // Debit notes â€" DebitAmt1Set's Dmbtr is already a plain positive
         // amount (no Shkzg sign to apply), same as onDebitNotesPress.
+        iRequestCount++;
         oModel.read("/DebitAmt1Set", {
           filters: [
             new Filter("Bukrs", FilterOperator.EQ, sBukrs),
@@ -1190,14 +1242,17 @@ sap.ui.define(
               return fSum + (parseFloat(o.Dmbtr) || 0);
             }, 0);
             oReconModel.setProperty("/debitNotesTotal", fTotal);
+            fnOnRequestComplete();
           },
           error: function () {
             oReconModel.setProperty("/debitNotesTotal", 0);
+            fnOnRequestComplete();
           },
         });
 
-        // Pending invoices â€” same "value as on <To Date>" pattern as
+        // Pending invoices â€" same "value as on <To Date>" pattern as
         // Advance balance.
+        iRequestCount++;
         oModel.read("/PendInvValuesSet", {
           filters: [
             new Filter("Bukrs", FilterOperator.EQ, sBukrs),
@@ -1209,15 +1264,18 @@ sap.ui.define(
               "/pendingInvoicesTotal",
               sumSigned(oData.results),
             );
+            fnOnRequestComplete();
           },
           error: function () {
             oReconModel.setProperty("/pendingInvoicesTotal", 0);
+            fnOnRequestComplete();
           },
         });
 
-        // Total PO value â€” TotalPOSet returns one row per PO item with
+        // Total PO value â€" TotalPOSet returns one row per PO item with
         // Netwr already as a plain positive net value (no Shkzg sign to
         // apply), same BudatFrom/BudatTo range as Debit notes.
+        iRequestCount++;
         oModel.read("/TotalPOSet", {
           filters: [
             new Filter("Bukrs", FilterOperator.EQ, sBukrs),
@@ -1230,13 +1288,15 @@ sap.ui.define(
               return fSum + (parseFloat(o.Netwr) || 0);
             }, 0);
             oReconModel.setProperty("/totalPOTotal", fTotal);
+            fnOnRequestComplete();
           },
           error: function () {
             oReconModel.setProperty("/totalPOTotal", 0);
+            fnOnRequestComplete();
           },
         });
 
-        // Pending PO â€” pendingpoSet uses its own FromDate/ToDate filter
+        // Pending PO â€" pendingpoSet uses its own FromDate/ToDate filter
         // names (not BudatFrom/BudatTo like TotalPOSet/DebitAmt1Set), and
         // PendVal is already a plain positive pending value.
         oModel.read("/pendingpoSet", {
@@ -1257,7 +1317,7 @@ sap.ui.define(
             oReconModel.setProperty("/pendingPOTotal", fTotal);
             // Preloaded here (not just inside onPendingPOPress) so the
             // Advance balance panel's "Total pending qty"/"Pending total"
-            // tiles â€” which show Pending PO's own totals â€” are already
+            // tiles â€" which show Pending PO's own totals â€" are already
             // populated the moment the supplier is searched, same as
             // every other sidebar total.
             oReconModel.setProperty("/pendingPOQty", fQtyTotal);
@@ -1265,7 +1325,7 @@ sap.ui.define(
             // Advance balance panel's "Total Qty Balance"/"Qty Balance
             // Amont" tile (AdvanceBalancePanel.fragment.xml) shows only
             // the Contract rows (Bstyp === "K", same split rule as
-            // _onPendingPOCategorySelected/_renderPendingPOTypeBarChart) â€”
+            // _onPendingPOCategorySelected/_renderPendingPOTypeBarChart) â€"
             // not every pendingpoSet row (which also includes plain POs,
             // Bstyp "F"), so it doesn't mix PO totals into what's meant to
             // be a contract-only figure.
@@ -1293,7 +1353,7 @@ sap.ui.define(
           },
         });
 
-        // Lots accepted â€” LotAcceptSet is keyed by Lifnr only (no Bukrs),
+        // Lots accepted â€" LotAcceptSet is keyed by Lifnr only (no Bukrs),
         // and uses its own Fromdate/Todate filter names (lowercase "date").
         oModel.read("/LotAcceptSet", {
           filters: [
@@ -1317,7 +1377,7 @@ sap.ui.define(
           },
         });
 
-        // Lots received â€” LotRecSet is keyed by Lifnr only (no Bukrs),
+        // Lots received â€" LotRecSet is keyed by Lifnr only (no Bukrs),
         // and uses FromDate/ToDate filter names (same casing as pendingpoSet).
         oModel.read("/LotRecSet", {
           filters: [
@@ -1340,7 +1400,7 @@ sap.ui.define(
           },
         });
 
-        // Rejected qty â€” LotRejectSet is keyed by Lifnr only (no Bukrs),
+        // Rejected qty â€" LotRejectSet is keyed by Lifnr only (no Bukrs),
         // and uses Fromdate/Todate filter names (lowercase "date", same
         // casing as LotAcceptSet).
         oModel.read("/LotRejectSet", {
@@ -1365,7 +1425,7 @@ sap.ui.define(
           },
         });
 
-        // AUD qty â€” LotAUDSet is keyed by Lifnr only (no Bukrs), same
+        // AUD qty â€" LotAUDSet is keyed by Lifnr only (no Bukrs), same
         // Fromdate/Todate filter names as LotAcceptSet/LotRejectSet. Sidebar
         // shows only the lot count (no amount tile for this row yet).
         oModel.read("/LotAUDSet", {
@@ -1385,7 +1445,7 @@ sap.ui.define(
           },
         });
 
-        // Accepted qty â€” AcceptSet is keyed by Lifnr only (no Bukrs), same
+        // Accepted qty â€" AcceptSet is keyed by Lifnr only (no Bukrs), same
         // Fromdate/Todate filter names as LotAcceptSet/LotRejectSet/LotAUDSet.
         oModel.read("/AcceptSet", {
           filters: [
@@ -1409,7 +1469,7 @@ sap.ui.define(
           },
         });
 
-        // Material receipts â€” MatReceiptSet is keyed by Bukrs+Lifnr (like
+        // Material receipts â€" MatReceiptSet is keyed by Bukrs+Lifnr (like
         // TotalPOSet), own Fromdate/Todate filter names.
         oModel.read("/MatReceiptSet", {
           filters: [
@@ -1429,7 +1489,7 @@ sap.ui.define(
           },
         });
 
-        // Vendor returns â€” VendorReturnsSet, same Bukrs+Lifnr+Fromdate/
+        // Vendor returns â€" VendorReturnsSet, same Bukrs+Lifnr+Fromdate/
         // Todate filter shape as MatReceiptSet. Preloaded here (not just
         // inside onVendorReturnsPress) so the sidebar's "Vendor Returns"
         // row already shows its real item count the moment the supplier is
@@ -1456,7 +1516,7 @@ sap.ui.define(
           },
         });
 
-        // Share of Business â€” ShareOfBusinessSet is keyed by Lifnr only (no
+        // Share of Business â€" ShareOfBusinessSet is keyed by Lifnr only (no
         // Bukrs), same Fromdate/Todate filter names as LotAcceptSet/
         // LotAUDSet. Preloaded here (not just inside onShareOfBusinessPress)
         // so the left sidebar's "Share of Business" row shows its qty share
@@ -1483,10 +1543,11 @@ sap.ui.define(
           },
         });
 
-        // Payments â€” PmtSelPrdSet raises a business exception (HTTP 400,
+        // Payments â€" PmtSelPrdSet raises a business exception (HTTP 400,
         // /IWBEP/CM_MGW_RT/022 "Data is not Found") instead of an empty
         // result when nothing matches the range; treat that the same as
-        // onPaymentsRowPress does â€” zero, not an error.
+        // onPaymentsRowPress does â€" zero, not an error.
+        iRequestCount++;
         oModel.read("/PmtSelPrdSet", {
           filters: [
             new Filter("Bukrs", FilterOperator.EQ, sBukrs),
@@ -1504,9 +1565,11 @@ sap.ui.define(
           ],
           success: function (oData) {
             oReconModel.setProperty("/paymentsTotal", sumSigned(oData.results));
+            fnOnRequestComplete();
           },
           error: function () {
             oReconModel.setProperty("/paymentsTotal", 0);
+            fnOnRequestComplete();
           },
         });
       },
@@ -1682,7 +1745,7 @@ sap.ui.define(
         this._sActiveMdPanel = "opening"; this._persistUiState();
         this._sActiveMdPanelLabel = "";
 
-        // Same navigation onSearch uses for a Supplier + Go press â€” the
+        // Same navigation onSearch uses for a Supplier + Go press â€" the
         // master-detail summary is its own routed page (Detail.view.xml /
         // Routedetail), not a mode flag on this view, so a vendor-row click
         // has to navigate there too instead of loading data into Main's own
@@ -1750,7 +1813,7 @@ sap.ui.define(
 
       /**
        * Summarizes the loaded open items into "RE Documents" / "Non-RE
-       * Documents" buckets, totalling Invoice Amt and Net Amt for each â€” the
+       * Documents" buckets, totalling Invoice Amt and Net Amt for each â€" the
        * data behind the two GenericTiles in the Open Items tab.
        */
       _buildKpiTileTotals: function (aOpenItems) {
@@ -1781,7 +1844,7 @@ sap.ui.define(
         });
 
         // Base (doc-type-only) set the search field filters on top of, and
-        // the sort state reset for a fresh open â€” otherwise a stale sort
+        // the sort state reset for a fresh open â€" otherwise a stale sort
         // from the last time this dialog was opened would silently keep
         // re-applying to a different tile's data.
         this._aOpenItemsDetailBase = aFiltered;
@@ -1825,7 +1888,7 @@ sap.ui.define(
 
       /**
        * Filters the Open Items detail dialog's table on top of whichever
-       * doc-type set (RE / Non-RE) is currently open â€” matches the search
+       * doc-type set (RE / Non-RE) is currently open â€" matches the search
        * text against Document/Type/Vendor/PO Number, case-insensitive,
        * substring match (same "good enough" matching every other filter in
        * this file uses).
@@ -1880,7 +1943,7 @@ sap.ui.define(
        * Fired from the small sort icon next to each column header in the
        * Open Items detail dialog. Clicking the same field again flips
        * ascending/descending; clicking a different field starts it fresh at
-       * ascending â€” same toggle convention as any column-header sort.
+       * ascending â€" same toggle convention as any column-header sort.
        */
       onOpenItemsDetailSort: function (oEvent) {
         var sField = oEvent.getSource().data("field");
@@ -1903,21 +1966,21 @@ sap.ui.define(
       },
 
       // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-      // Column Settings / Select Layout â€” shared across EVERY master-detail
+      // Column Settings / Select Layout â€" shared across EVERY master-detail
       // line-items grid (Opening balance/masterDetailTable, Transactions,
       // Advance balance, Debit notes, Payments): all five tables render the
-      // same 5-column schema (Document/Date/Type/Amount/Status â€” oiCol1..5,
+      // same 5-column schema (Document/Date/Type/Amount/Status â€" oiCol1..5,
       // via bindings recon>Belnr/Budat/Blart/NetAmt/Augbl that already exist
       // on every one of those row shapes), so one Column Settings dialog and
       // one Select Layout dialog can drive all five at once. Applying or
       // saving a layout broadcasts the same column order/visibility to every
-      // table in OI_TABLE_IDS in one go â€” that's the "same layout for all"
+      // table in OI_TABLE_IDS in one go â€" that's the "same layout for all"
       // behavior. (Advance balance has no clearing document and Debit notes
       // has neither a posting date nor a clearing document, so Status/Date
-      // just render blank/"Open" defaults there if included â€” still a
+      // just render blank/"Open" defaults there if included â€" still a
       // consistent column set, just not always meaningful data.)
       //
-      // Same picker â†’ apply â†’ offer-to-save flow as any backend-backed
+      // Same picker â†' apply â†' offer-to-save flow as any backend-backed
       // layout feature; this persists to ZSUPPLIER_DLT_SRV's LayoutSet
       // entity set (see the "Select Layout" section further down).
       // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1932,7 +1995,7 @@ sap.ui.define(
       ],
 
       // Every other master-detail table (MATERIALS (MM) / QUALITY (QM)
-      // groups) has its OWN column schema â€” unlike the six FI tables above,
+      // groups) has its OWN column schema â€" unlike the six FI tables above,
       // which all render the identical 15-field OpenItemsSet shape. Column
       // Settings/Select Layout used to be wired to the same shared FI
       // column list (Document/Date/Type/Amount/Status/...) regardless of
@@ -1969,192 +2032,263 @@ sap.ui.define(
        * table, mirroring exactly what's hand-authored in each table's own
        * fragment XML (TotalPOPanel, PendingPOPanel, MatReceiptPanel,
        * VendorReturnsPanel, LotsReceivedPanel, LotsAcceptedPanel,
-       * RejectedQtyPanel, AcceptedQtyPanel, AudQtyPanel) â€” so Column
+       * RejectedQtyPanel, AcceptedQtyPanel, AudQtyPanel) â€" so Column
        * Settings/Select Layout on these tables picks from/rebuilds their
        * actual columns instead of the FI list. `cell` takes the controller
        * instance (for bound formatters) and returns a fresh cell template.
        */
+      // Column ids below use one shared "col1".."col28" numbering across
+      // totalPOTable/pendingPOTable/matReceiptsTable/vendorReturnsTable:
+      // col1=Ebeln, col2=Ebelp, col3=Bukrs, col4=Lifnr, col5=Matnr,
+      // col6=Menge are common to all four tables; col7=Bedat, col8=Txz01,
+      // col9=Netpr, col10=Bsart, col11=Name1, col12=Peinh, col13=Waers are
+      // shared between the two PO tables; col14=Mblnr, col15=date (
+      // Budat_mkpf/BudatMkpf), col16=Werks, col17=Bwart, col18=Zeile,
+      // col19=Gjahr, col20=Lgort are shared between the two goods-movement
+      // tables; col21=Netwr, col22=Bstyp (totalPOTable only), col23=PendQty,
+      // col24=PendVal, col25=EketMenge, col26=Wemng (pendingPOTable only)
+      // and col27=Dmbtr (matReceiptsTable only) exist on just one table.
+      // col28=Maktx (material description, distinct from Txz01's own PO-
+      // line-text field) is common to ALL FOUR tables, same id everywhere.
+      // Same field -> same id everywhere it appears, so a saved Layout's
+      // Columns id list (shared per "MM" category, see TABLE_CATEGORY)
+      // resolves to the same field on every table that defines it, instead
+      // of colliding with an unrelated field. These ids are ALREADY in
+      // LayoutSet's on-the-wire "col<N>" shape (unlike FI's controller-
+      // internal "oiCol<N>"), so oiColIdToBackend/backendColIdToOi pass
+      // them through unchanged instead of running the FI-only transform.
       MM_QM_COLUMN_DEFS: {
         // Every field TotalPOSet's response actually returns (Ebeln, Ebelp,
-        // Bukrs, Lifnr, Name1, Bedat, Bstyp, Bsart, Matnr, Txz01, Menge,
-        // Meins, Netpr, Peinh, Netwr, Waers â€” BudatFrom/BudatTo are just the
-        // filter echoed back, not real data, so they're left out) gets its
-        // own selectable column here, not just the 6 shown by default.
+        // Bukrs, Lifnr, Name1, Bedat, Bstyp, Bsart, Matnr, Txz01, Maktx,
+        // Menge, Meins, Netpr, Peinh, Netwr, Waers â€" BudatFrom/BudatTo are
+        // just the filter echoed back, not real data, so they're left out)
+        // gets its own selectable column here, not just the 6 shown by
+        // default.
         totalPOTable: [
-          { id: "oiCol1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
-          { id: "oiCol2", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol3", label: "Material", field: "Txz01", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Txz01}", wrapping: false }); } },
-          { id: "oiCol4", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
-          { id: "oiCol5", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol6", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol7", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
-          { id: "oiCol8", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
-          { id: "oiCol9", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
-          { id: "oiCol10", label: "Document Category", field: "Bstyp", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Bstyp}" }); } },
-          { id: "oiCol11", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
-          { id: "oiCol12", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol13", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
-          { id: "oiCol14", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
-          { id: "oiCol15", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
+          { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
+          { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
+          { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
+          { id: "col5", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
+          { id: "col10", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
+          { id: "col22", label: "Document Category", field: "Bstyp", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Bstyp}" }); } },
+          { id: "col3", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
+          { id: "col4", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col11", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
+          { id: "col12", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
+          { id: "col13", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
+          { id: "col28", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
         ],
         // Every field pendingpoSet's response actually returns, per the
         // aItems map in onPendingPOPress (Ebeln, Ebelp, Bukrs, Lifnr, Name1,
-        // Bedat, Bsart, Matnr, Txz01, Menge, EketMenge, Wemng, PendQty,
-        // Meins, Netpr, Peinh, PendVal, Waers) gets its own selectable
-        // column here, not just the 6 shown by default.
-        pendingPOTable: [
-          { id: "oiCol1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
-          { id: "oiCol2", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol3", label: "Material", field: "Txz01", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Txz01}", wrapping: false }); } },
-          { id: "oiCol4", label: "Quantity", field: "PendQty", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>PendQty} + ' ' + ${recon>Meins} }" }); } },
-          { id: "oiCol5", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol6", label: "Pending Amount", field: "PendVal", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>PendVal", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol7", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
-          { id: "oiCol8", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
-          { id: "oiCol9", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
-          { id: "oiCol10", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
-          { id: "oiCol11", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol12", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
-          { id: "oiCol13", label: "PO Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
-          { id: "oiCol14", label: "Sched. Quantity", field: "EketMenge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>EketMenge}" }); } },
-          { id: "oiCol15", label: "GR Quantity", field: "Wemng", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Wemng}" }); } },
-          { id: "oiCol16", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
-          { id: "oiCol17", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
+        // Bedat, Bsart, Matnr, Txz01, Maktx, Menge, EketMenge, Wemng,
+        // PendQty, Meins, Netpr, Peinh, PendVal, Waers) gets its own
+        // selectable column here, not just the 6 shown by default.
+        pendingPOTable
+        :[
+          { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
+          { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          
+          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
+          { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
+          { id: "col5", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
+          { id: "col10", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
+          { id: "col22", label: "Document Category", field: "Bstyp", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Bstyp}" }); } },
+          { id: "col3", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
+          { id: "col4", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col11", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
+          { id: "col12", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
+          { id: "col13", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
+          { id: "col28", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
         ],
         // Every field MatReceiptSet's response actually returns, per the
         // aItems map in onMaterialReceiptsPress (Mblnr, Zeile, Werks, Bukrs,
-        // Gjahr, Lifnr, Ebeln, Ebelp, Bwart, Matnr, Lgort, Menge, Meins,
-        // Budat_mkpf, Dmbtr) gets its own selectable column here, not just
-        // the 7 shown by default.
+        // Gjahr, Lifnr, Ebeln, Ebelp, Bwart, Matnr, Maktx, Lgort, Menge,
+        // Meins, Budat_mkpf, Dmbtr) gets its own selectable column here, not
+        // just the 7 shown by default.
         matReceiptsTable: [
-          { id: "oiCol1", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
-          { id: "oiCol2", label: "Date", field: "Budat_mkpf", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Budat_mkpf", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol3", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
-          { id: "oiCol4", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
-          { id: "oiCol5", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
-          { id: "oiCol6", label: "Mvt Type", field: "Bwart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bwart}" }); } },
-          { id: "oiCol7", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
-          { id: "oiCol8", label: "Item", field: "Zeile", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Zeile}" }); } },
-          { id: "oiCol9", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
-          { id: "oiCol10", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
-          { id: "oiCol11", label: "Fiscal Year", field: "Gjahr", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Gjahr}" }); } },
-          { id: "oiCol12", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol13", label: "Storage Loc.", field: "Lgort", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lgort}" }); } },
-          { id: "oiCol14", label: "Amount", field: "Dmbtr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Dmbtr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
+          { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
+          { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
+          { id: "col5", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
+          { id: "col10", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
+          { id: "col22", label: "Document Category", field: "Bstyp", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Bstyp}" }); } },
+          { id: "col3", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
+          { id: "col4", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col11", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
+          { id: "col12", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
+          { id: "col13", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
+          { id: "col28", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
         ],
         // Every field VendorReturnsSet's response actually returns, per the
         // aItems map in onVendorReturnsPress (Mblnr, Zeile, Werks, Bukrs,
-        // Gjahr, Lifnr, Ebeln, Ebelp, Bwart, Matnr, Lgort, Menge, Meins,
-        // BudatMkpf) gets its own selectable column here, not just the 7
-        // shown by default.
-        vendorReturnsTable: [
-          { id: "oiCol1", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
-          { id: "oiCol2", label: "Date", field: "BudatMkpf", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>BudatMkpf", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol3", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
-          { id: "oiCol4", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
-          { id: "oiCol5", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
-          { id: "oiCol6", label: "Mvt Type", field: "Bwart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bwart}" }); } },
-          { id: "oiCol7", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
-          { id: "oiCol8", label: "Item", field: "Zeile", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Zeile}" }); } },
-          { id: "oiCol9", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
-          { id: "oiCol10", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
-          { id: "oiCol11", label: "Fiscal Year", field: "Gjahr", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Gjahr}" }); } },
-          { id: "oiCol12", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol13", label: "Storage Loc.", field: "Lgort", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lgort}" }); } },
+        // Gjahr, Lifnr, Ebeln, Ebelp, Bwart, Matnr, Maktx, Lgort, Menge,
+        // Meins, BudatMkpf) gets its own selectable column here, not just
+        // the 7 shown by default.
+        vendorReturnsTable:[
+          { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
+          { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
+          { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
+          { id: "col5", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
+          { id: "col10", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
+          { id: "col22", label: "Document Category", field: "Bstyp", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Bstyp}" }); } },
+          { id: "col3", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
+          { id: "col4", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col11", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
+          { id: "col12", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
+          { id: "col13", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
+          { id: "col28", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
         ],
         // Every field LotRecSet's response actually returns (Prueflos,
-        // Werks, Art, Objnr, Obtyp, Stat01, Enstehdat, Matnr, Lifnr, Kzart,
-        // Vcode, Qkennzahl, Aufnr, Charg, Losmenge â€” FromDate/ToDate are
-        // just the filter echoed back, not real data, so they're left out)
-        // gets its own selectable column here, not just the 7 shown by
+        // Werks, Art, Objnr, Obtyp, Stat01, Enstehdat, Matnr, Maktx, Lifnr,
+        // Kzart, Vcode, Qkennzahl, Aufnr, Charg, Losmenge â€" FromDate/ToDate
+        // are just the filter echoed back, not real data, so they're left
+        // out) gets its own selectable column here, not just the 7 shown by
         // default.
+        //
+        // All five QM tables below (lotsReceivedTable, lotsAcceptedTable,
+        // rejectedQtyTable, acceptedQtyTable, audQtyTable) now offer the
+        // FULL LotRecSet field set, using one shared "col1".."col17"
+        // numbering: col1=Prueflos, col2=Werks, col3=Enstehdat, col4=Matnr,
+        // col5=Maktx, col6=Charg, col7=Vcode, col8=Losmenge, col9=Art,
+        // col10=Lifnr, col11=Qkennzahl, col12=Objnr, col13=Obtyp,
+        // col14=Stat01, col15=Kzart, col16=Aufnr, col17=Mblnr. Same field ->
+        // same id on every table that defines it (same reasoning as the MM
+        // tables' col1..col28 above) â€" fields a specific entity might not
+        // actually return (e.g. Objnr on LotAcceptSet) still get a column
+        // here so its own aItems map has somewhere to put the value if the
+        // backend ever adds it, same as Maktx was added across the MM
+        // tables.
         lotsReceivedTable: [
-          { id: "oiCol1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Prueflos}" }); } },
-          { id: "oiCol2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
-          { id: "oiCol3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
-          { id: "oiCol5", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
-          { id: "oiCol6", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
-          { id: "oiCol7", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol8", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
-          { id: "oiCol9", label: "Object Number", field: "Objnr", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Objnr}" }); } },
-          { id: "oiCol10", label: "Object Type", field: "Obtyp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Obtyp}" }); } },
-          { id: "oiCol11", label: "Status", field: "Stat01", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Stat01}" }); } },
-          { id: "oiCol12", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol13", label: "Characteristic Type", field: "Kzart", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Kzart}" }); } },
-          { id: "oiCol14", label: "Order Number", field: "Aufnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Aufnr}" }); } },
+          { id: "col1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function (that) { return new Link({ text: "{recon>Prueflos}", press: that.onLotsReceivedLotNumberPress.bind(that) }); } },
+          { id: "col2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
+          { id: "col3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
+          { id: "col5", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
+          { id: "col6", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
+          { id: "col7", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
+          { id: "col8", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col9", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
+          { id: "col12", label: "Object Number", field: "Objnr", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Objnr}" }); } },
+          { id: "col13", label: "Object Type", field: "Obtyp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Obtyp}" }); } },
+          { id: "col14", label: "Status", field: "Stat01", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Stat01}" }); } },
+          { id: "col10", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col15", label: "Characteristic Type", field: "Kzart", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Kzart}" }); } },
+          { id: "col16", label: "Order Number", field: "Aufnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Aufnr}" }); } },
+          { id: "col17", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
+          { id: "col11", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
         ],
         // Every field LotAcceptSet's response actually returns, per the
         // aItems map in onLotsAcceptedPress (Prueflos, Werks, Art, Matnr,
-        // Lifnr, Vcode, Qkennzahl, Charg, Losmenge, Enstehdat) gets its own
-        // selectable column here, not just the 7 shown by default.
+        // Maktx, Lifnr, Vcode, Qkennzahl, Charg, Losmenge, Enstehdat) gets
+        // its own selectable column here, not just the 7 shown by default â€"
+        // see the shared col1..col17 numbering comment above lotsReceivedTable.
         lotsAcceptedTable: [
-          { id: "oiCol1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Prueflos}" }); } },
-          { id: "oiCol2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
-          { id: "oiCol3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
-          { id: "oiCol5", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
-          { id: "oiCol6", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
-          { id: "oiCol7", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol8", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
-          { id: "oiCol9", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol10", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
+          { id: "col1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function (that) { return new sap.m.Link({ text: "{recon>Prueflos}", press: that.onLotsReceivedLotNumberPress.bind(that) }); } },
+          { id: "col2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
+          { id: "col3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
+          { id: "col5", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
+          { id: "col6", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
+          { id: "col11", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
+          { id: "col8", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col9", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
+          { id: "col10", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col7", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
+          { id: "col12", label: "Object Number", field: "Objnr", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Objnr}" }); } },
+          { id: "col13", label: "Object Type", field: "Obtyp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Obtyp}" }); } },
+          { id: "col14", label: "Status", field: "Stat01", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Stat01}" }); } },
+          { id: "col15", label: "Characteristic Type", field: "Kzart", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Kzart}" }); } },
+          { id: "col16", label: "Order Number", field: "Aufnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Aufnr}" }); } },
+          { id: "col17", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
         ],
         // Every field LotRejectSet's response actually returns, per the
         // aItems map in onRejectedQtyPress (Prueflos, Werks, Art, Matnr,
-        // Lifnr, Vcode, Qkennzahl, Charg, Losmenge, Enstehdat) gets its own
-        // selectable column here, not just the 7 shown by default.
+        // Maktx, Lifnr, Vcode, Qkennzahl, Charg, Losmenge, Enstehdat) gets
+        // its own selectable column here, not just the 7 shown by default â€"
+        // see the shared col1..col17 numbering comment above lotsReceivedTable.
         rejectedQtyTable: [
-          { id: "oiCol1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Prueflos}" }); } },
-          { id: "oiCol2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
-          { id: "oiCol3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
-          { id: "oiCol5", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
-          { id: "oiCol6", label: "Reject Code", field: "Vcode", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
-          { id: "oiCol7", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol8", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
-          { id: "oiCol9", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol10", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
+          { id: "col1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function (that) { return new sap.m.Link({ text: "{recon>Prueflos}", press: that.onLotsReceivedLotNumberPress.bind(that) }); } },
+          { id: "col2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
+          { id: "col3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
+          { id: "col5", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
+          { id: "col6", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
+          { id: "col7", label: "Reject Code", field: "Vcode", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
+          { id: "col8", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col9", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
+          { id: "col10", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col11", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
+          { id: "col12", label: "Object Number", field: "Objnr", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Objnr}" }); } },
+          { id: "col13", label: "Object Type", field: "Obtyp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Obtyp}" }); } },
+          { id: "col14", label: "Status", field: "Stat01", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Stat01}" }); } },
+          { id: "col15", label: "Characteristic Type", field: "Kzart", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Kzart}" }); } },
+          { id: "col16", label: "Order Number", field: "Aufnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Aufnr}" }); } },
+          { id: "col17", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
         ],
         // Every field AcceptSet's response actually returns, per the aItems
-        // map in onAcceptedQtyPress (Prueflos, Werks, Art, Matnr, Lifnr,
-        // Vcode, Qkennzahl, Charg, Mblnr, Losmenge, Enstehdat) gets its own
-        // selectable column here, not just the 8 shown by default.
+        // map in onAcceptedQtyPress (Prueflos, Werks, Art, Matnr, Maktx,
+        // Lifnr, Vcode, Qkennzahl, Charg, Mblnr, Losmenge, Enstehdat) gets
+        // its own selectable column here, not just the 8 shown by default â€"
+        // see the shared col1..col17 numbering comment above lotsReceivedTable.
         acceptedQtyTable: [
-          { id: "oiCol1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Prueflos}" }); } },
-          { id: "oiCol2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
-          { id: "oiCol3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
-          { id: "oiCol5", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
-          { id: "oiCol6", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
-          { id: "oiCol7", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
-          { id: "oiCol8", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol9", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
-          { id: "oiCol10", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol11", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
+          { id: "col1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function (that) { return new sap.m.Link({ text: "{recon>Prueflos}", press: that.onLotsReceivedLotNumberPress.bind(that) }); } },
+          { id: "col2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
+          { id: "col3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
+          { id: "col5", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
+          { id: "col6", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
+          { id: "col7", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
+          { id: "col11", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
+          { id: "col8", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col9", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
+          { id: "col10", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col17", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
+          { id: "col12", label: "Object Number", field: "Objnr", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Objnr}" }); } },
+          { id: "col13", label: "Object Type", field: "Obtyp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Obtyp}" }); } },
+          { id: "col14", label: "Status", field: "Stat01", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Stat01}" }); } },
+          { id: "col15", label: "Characteristic Type", field: "Kzart", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Kzart}" }); } },
+          { id: "col16", label: "Order Number", field: "Aufnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Aufnr}" }); } },
         ],
         // Every field LotAUDSet's response actually returns, per the
-        // aItems map in onAudQtyPress (Prueflos, Werks, Art, Matnr, Lifnr,
-        // Vcode, Qkennzahl, Charg, Mblnr, Losmenge, Enstehdat) gets its own
-        // selectable column here, not just the 8 shown by default.
+        // aItems map in onAudQtyPress (Prueflos, Werks, Art, Matnr, Maktx,
+        // Lifnr, Vcode, Qkennzahl, Charg, Mblnr, Losmenge, Enstehdat) gets
+        // its own selectable column here, not just the 8 shown by default â€"
+        // see the shared col1..col17 numbering comment above lotsReceivedTable.
         audQtyTable: [
-          { id: "oiCol1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Prueflos}" }); } },
-          { id: "oiCol2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
-          { id: "oiCol3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "oiCol4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
-          { id: "oiCol5", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
-          { id: "oiCol6", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
-          { id: "oiCol7", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
-          { id: "oiCol8", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "oiCol9", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
-          { id: "oiCol10", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "oiCol11", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
+          { id: "col1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Prueflos}" }); } },
+          { id: "col2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
+          { id: "col3", label: "Date", field: "Enstehdat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Enstehdat", formatter: that.formatOpenItemDate.bind(that) } }); } },
+          { id: "col4", label: "Material", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}", wrapping: false }); } },
+          { id: "col5", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
+          { id: "col6", label: "Batch", field: "Charg", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Charg}" }); } },
+          { id: "col7", label: "Code", field: "Vcode", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Vcode}" }); } },
+          { id: "col11", label: "Acceptance %", field: "Qkennzahl", width: "7rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Qkennzahl}" }); } },
+          { id: "col8", label: "Lot Quantity", field: "Losmenge", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Losmenge", formatter: that.formatAmount.bind(that) } }); } },
+          { id: "col9", label: "Inspection Type", field: "Art", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Art}" }); } },
+          { id: "col10", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
+          { id: "col17", label: "Material Doc.", field: "Mblnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Mblnr}" }); } },
+          { id: "col12", label: "Object Number", field: "Objnr", width: "9rem", cell: function () { return new sap.m.Text({ text: "{recon>Objnr}" }); } },
+          { id: "col13", label: "Object Type", field: "Obtyp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Obtyp}" }); } },
+          { id: "col14", label: "Status", field: "Stat01", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Stat01}" }); } },
+          { id: "col15", label: "Characteristic Type", field: "Kzart", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Kzart}" }); } },
+          { id: "col16", label: "Order Number", field: "Aufnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Aufnr}" }); } },
         ],
       },
 
       /**
        * Rebuilds ONE MM/QM table's columns from a selected+ordered list of
-       * column ids, using that table's own MM_QM_COLUMN_DEFS entry â€” the
+       * column ids, using that table's own MM_QM_COLUMN_DEFS entry â€" the
        * MM/QM equivalent of _applyOpenItemsColumnSelection (which is FI-only
        * and always broadcasts to every FI table since they share one
        * schema). Ids the active table doesn't define are silently skipped
@@ -2190,9 +2324,9 @@ sap.ui.define(
 
       /**
        * Swaps oiColumnModel's /columns to whichever table triggered the
-       * Column Settings dialog most recently â€” FI's shared 15-field list
+       * Column Settings dialog most recently â€" FI's shared 15-field list
        * for the six FI tables, or that specific MM/QM table's own real
-       * columns â€” so the dialog never shows field names that don't exist
+       * columns â€" so the dialog never shows field names that don't exist
        * on the table it was opened from.
        */
       _setOiColumnModelForActiveTable: function () {
@@ -2253,7 +2387,7 @@ sap.ui.define(
         });
       },
 
-      // Tracks the checked values so re-opening the popover remembers them â€”
+      // Tracks the checked values so re-opening the popover remembers them â€"
       // doesn't touch the table's data/binding yet.
       onOpenItemsFilterSelectionChange: function () {
         var oList = this.byId("oiFilterList");
@@ -2386,7 +2520,7 @@ sap.ui.define(
         }
       },
 
-      /** Reads the checked items off oiColumnSelectorList in their current visual order â€” [{key, title}]. */
+      /** Reads the checked items off oiColumnSelectorList in their current visual order â€" [{key, title}]. */
       _getOpenItemsSelectedColumns: function () {
         var oList = this.byId("oiColumnSelectorList");
         return oList
@@ -2450,7 +2584,7 @@ sap.ui.define(
       },
 
       /**
-       * column id -> the JSON model field it's bound to â€” mirrors
+       * column id -> the JSON model field it's bound to â€" mirrors
        * _getOpenItemsCellByColumnId's switch, used to wire sortProperty/
        * filterProperty on the dynamically rebuilt masterDetailTable columns
        * so every column gets the same built-in header Sort/Filter menu that
@@ -2493,7 +2627,7 @@ sap.ui.define(
         }
       },
 
-      /** column id -> the actual cell control template used inside masterDetailTable â€” mirrors the fixed columns further up this file. */
+      /** column id -> the actual cell control template used inside masterDetailTable â€" mirrors the fixed columns further up this file. */
       _getOpenItemsCellByColumnId: function (sColId) {
         switch (sColId) {
           case "oiCol1": // Document
@@ -2557,15 +2691,15 @@ sap.ui.define(
 
       /**
        * Rebuilds ONE table's columns (sap.ui.table.Table, NOT
-       * sap.ui.table.TreeTable â€” a plain grid table) from a selected+ordered
+       * sap.ui.table.TreeTable â€" a plain grid table) from a selected+ordered
        * list of column ids: destroys every column and re-adds them in that
        * order, each carrying its own bound cell template. Rows stay bound to
        * whatever that table's own "rows" aggregation already points at
-       * (recon>/openItems, recon>/transactionItems, â€¦) throughout â€” only the
+       * (recon>/openItems, recon>/transactionItems, â€¦) throughout â€" only the
        * columns aggregation changes.
        *
        * Widths are fixed rem values per column (OI_COLUMN_WIDTHS below)
-       * instead of an even 100/count percentage split â€” with up to 15
+       * instead of an even 100/count percentage split â€" with up to 15
        * columns now selectable, splitting evenly would squeeze every
        * column down to an unreadable sliver. Fixed widths let columns
        * keep a sane minimum size and the table's own
@@ -2595,6 +2729,11 @@ sap.ui.define(
         if (!oTable) return;
         var that = this;
 
+        // Don't apply column selection to Lots Received table - use fragment's template with Link
+        if (sTableId === "lotsReceivedTable") {
+          return;
+        }
+
         oTable.destroyColumns();
 
         aSelectedColumnIds.forEach(function (sColId) {
@@ -2617,7 +2756,7 @@ sap.ui.define(
 
       /**
        * Broadcasts a column selection+order to EVERY master-detail line-items
-       * table (OI_TABLE_IDS) â€” this is what makes "select/save a layout"
+       * table (OI_TABLE_IDS) â€" this is what makes "select/save a layout"
        * apply the same layout everywhere instead of just the panel the
        * dialog happened to be opened from.
        */
@@ -2628,15 +2767,15 @@ sap.ui.define(
         });
       },
 
-      // â”€â”€â”€ Select Layout (backend-persisted via LayoutSet) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // â"€â"€â"€ Select Layout (backend-persisted via LayoutSet) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
       //
       // Layouts are stored server-side in ZSUPPLIER_DLT_SRV's LayoutSet
-      // (key: LayoutName), not localStorage â€” GET/POST/MERGE/DELETE against
+      // (key: LayoutName), not localStorage â€" GET/POST/MERGE/DELETE against
       // that entity set instead of reading/writing a browser key. Its shape,
       // confirmed against a live response:
       //   { LayoutName: "TEST", Default: "X" | "", Columns: "oiCol1,oiCol3,...", Category: "FI" }
       // "Default" is a flag character ("X"/"") like any other SAP checkbox
-      // field, not a boolean. Category is "FI"/"MM"/"QM" â€” every GET is
+      // field, not a boolean. Category is "FI"/"MM"/"QM" â€" every GET is
       // filtered to one category and every POST tags the row with one (see
       // TABLE_CATEGORY/_getTableCategory), so a layout saved while
       // configuring an MM or QM table never shows up (or gets applied) on
@@ -2648,18 +2787,23 @@ sap.ui.define(
 
       /** LayoutSet row -> {LayoutName, Columns, Default: boolean, Category} shape the rest of this file already works with. */
       _mapLayoutSetRow: function (o) {
+        // Older rows saved before this field existed have no Category on
+        // the backend â€" treat those as FI (the section that always had
+        // this feature) rather than dropping them. Computed up front since
+        // backendColIdToOi needs it to know whether to run the oiColN<->
+        // colN transform (FI only) or leave MM/QM's own "col<N>" ids as-is.
+        var sCategory = o.Category || "FI";
         return {
           LayoutName: o.LayoutName,
           Columns: (o.Columns || "")
             .split(",")
             .filter(Boolean)
-            .map(backendColIdToOi)
+            .map(function (sId) {
+              return backendColIdToOi(sId, sCategory);
+            })
             .join(","),
           Default: o.Default === "X" || o.Default === true,
-          // Older rows saved before this field existed have no Category on
-          // the backend â€” treat those as FI (the section that always had
-          // this feature) rather than dropping them.
-          Category: o.Category || "FI",
+          Category: sCategory,
         };
       },
 
@@ -2733,14 +2877,14 @@ sap.ui.define(
 
       /**
        * Persists one LayoutSet row (tagged with its Category) and re-syncs
-       * oiLayoutModel from that category's in-memory list on success â€”
+       * oiLayoutModel from that category's in-memory list on success â€"
        * callers pass a plain {LayoutName, Columns, Default: boolean,
        * Category} object with Columns in this app's internal "oiCol1"..
        * scheme (translated to the backend's "col1".. scheme here, right
        * before the request goes out).
        *
        * Overwriting an existing LayoutName goes through DELETE_ENTITY then
-       * CREATE_ENTITY rather than a MERGE/update() â€” this backend's
+       * CREATE_ENTITY rather than a MERGE/update() â€" this backend's
        * LAYOUTSET_UPDATE_ENTITY isn't implemented (confirmed: MERGE
        * LayoutSet('B') came back "HTTP/1.1 501 Not Implemented"), so a plain
        * update() would always fail here even though the entity set itself
@@ -2754,21 +2898,21 @@ sap.ui.define(
        * Persists any number of LayoutSet rows in as few backend round
        * trips as possible, instead of one remove+create pair per layout
        * fired back-to-back (which is what _setBackendLayoutDefault used to
-       * do via a loop of individual _saveLayoutToBackend calls â€” clearing
+       * do via a loop of individual _saveLayoutToBackend calls â€" clearing
        * one previous default plus setting a new one meant 4 sequential
        * $batch requests for a single "Set as Default" click).
        *
        * Overwriting an existing LayoutName goes through DELETE_ENTITY then
-       * CREATE_ENTITY rather than a MERGE/update() â€” this backend's
+       * CREATE_ENTITY rather than a MERGE/update() â€" this backend's
        * LAYOUTSET_UPDATE_ENTITY isn't implemented (confirmed: MERGE
        * LayoutSet('B') came back "HTTP/1.1 501 Not Implemented"). Since the
        * create for an existing row can only go out once its delete has
-       * actually committed (same key), this still needs two phases â€” a
+       * actually committed (same key), this still needs two phases â€" a
        * "remove all existing rows being touched" batch, then a "create all
-       * rows" batch â€” but each phase is exactly ONE $batch request no
+       * rows" batch â€" but each phase is exactly ONE $batch request no
        * matter how many layouts are involved, each row's operation living
        * in its own changeset (the backend's default changeset
-       * implementation allows only one operation per changeset â€” batching
+       * implementation allows only one operation per changeset â€" batching
        * two together returned "Default changeset implementation allows
        * only one operation", /IWBEP/CM_MGW_RT/053).
        */
@@ -2797,7 +2941,9 @@ sap.ui.define(
               Columns: oLayout.Columns
                 .split(",")
                 .filter(Boolean)
-                .map(oiColIdToBackend)
+                .map(function (sId) {
+                  return oiColIdToBackend(sId, sCategory);
+                })
                 .join(","),
               Default: oLayout.Default ? "X" : "",
               Category: sCategory,
@@ -2837,7 +2983,7 @@ sap.ui.define(
             oModel.setDeferredGroups(
               oModel.getDeferredGroups().concat([sGroupId]),
             );
-            // refreshAfterChange:false â€” ODataModel.create() defaults to
+            // refreshAfterChange:false â€" ODataModel.create() defaults to
             // true, which re-reads the entity right after the write
             // (calling the backend's GET_ENTITY handler) purely to sync
             // change-tracking. LayoutSet doesn't need that round trip, and
@@ -2916,7 +3062,7 @@ sap.ui.define(
 
       /**
        * Broadcasts one column selection to every MM/QM table tagged with
-       * sCategory in TABLE_CATEGORY (skipping any not yet in the DOM) â€”
+       * sCategory in TABLE_CATEGORY (skipping any not yet in the DOM) â€"
        * shared by _applyDefaultOpenItemsLayoutForCategory (applying the
        * saved Default on load) and onOpenItemsApplyLayout (applying
        * whichever layout was just picked in the Select Layout dialog, even
@@ -2938,12 +3084,12 @@ sap.ui.define(
 
       /**
        * Clears Default on every OTHER layout in sCategory (LayoutSet has no
-       * separate "current default" pointer â€” Default is a per-row flag, so
+       * separate "current default" pointer â€" Default is a per-row flag, so
        * only ever one row may hold it at a time). Split out of
        * _setBackendLayoutDefault so the Save-layout dialog's "Make Default"
        * checkbox can reuse it without also re-saving the layout that was
        * just created/updated a second time (that layout is already saved
-       * with Default:true by the caller before this runs) â€” previously
+       * with Default:true by the caller before this runs) â€" previously
        * every "create as default" went out as an extra, fully redundant
        * delete+create pair on top of the real save, doubling the batch
        * calls for no reason.
@@ -2976,7 +3122,7 @@ sap.ui.define(
        * Default layout within the active category on the backend, clearing
        * Default on whichever layout previously held it. Used by the Select
        * Layout dialog's own "Set as Default" action, where the target
-       * layout isn't otherwise being touched â€” unlike the Save-layout
+       * layout isn't otherwise being touched â€" unlike the Save-layout
        * dialog's "Make Default" checkbox, which saves the target with
        * Default:true directly and only needs _clearOtherBackendDefaults,
        * not a second save of the target through here.
@@ -3042,7 +3188,7 @@ sap.ui.define(
       },
 
       /**
-       * Full page reload â€” _persistUiState/_restoreUiState (sessionStorage)
+       * Full page reload â€" _persistUiState/_restoreUiState (sessionStorage)
        * carry the user's place across it. Sets ALLOW_RESTORE_ONCE_KEY first
        * so _shouldRestoreUiState definitely restores after THIS reload, even
        * when this app is running inside the FLP shell's iframe (where the
@@ -3054,7 +3200,7 @@ sap.ui.define(
         try {
           window.sessionStorage.setItem(this.ALLOW_RESTORE_ONCE_KEY, "1");
         } catch (e) {
-          // sessionStorage unavailable â€” worst case this reload lands on
+          // sessionStorage unavailable â€" worst case this reload lands on
           // fresh defaults instead of restoring, same as before this flag existed.
         }
         window.location.reload();
@@ -3068,7 +3214,7 @@ sap.ui.define(
         this._sActiveOiCategory = this._getTableCategory(this._sActiveOiTableId);
 
         // Loads (or reuses the cached) LayoutSet rows for THIS category
-        // only, and points oiLayoutModel at them, before the dialog opens â€”
+        // only, and points oiLayoutModel at them, before the dialog opens â€"
         // so Select Layout on an MM/QM table only ever lists that
         // category's own saved layouts, never FI's (or another category's).
         this._ensureLayoutsLoadedForCategory(this._sActiveOiCategory, function () {
@@ -3120,7 +3266,7 @@ sap.ui.define(
         // When "Set as Default" is checked, _setBackendLayoutDefault ends
         // in a full page reload (see there for why) once the backend save
         // confirms, and that reload re-applies this exact layout to every
-        // table itself â€” so the in-place apply below is skipped in that
+        // table itself â€" so the in-place apply below is skipped in that
         // case to avoid a flash of the layout followed immediately by a
         // reload, and by two contradictory MessageToasts stacking up.
         if (bSetAsDefault) {
@@ -3135,7 +3281,7 @@ sap.ui.define(
         } else {
           // Broadcast to every table in the active MM/QM category, not
           // just _sActiveOiTableId (the one Select Layout was opened from)
-          // â€” otherwise applying a layout from e.g. Total PO left Material
+          // â€" otherwise applying a layout from e.g. Total PO left Material
           // Receipts/Pending PO/etc. still showing their old columns until
           // the page was reloaded (which only re-applies whatever layout
           // is marked Default, not whichever one was just picked here).
@@ -3190,7 +3336,7 @@ sap.ui.define(
       /**
        * The FI header's "From Date" field is greyed out (visible, not
        * hidden) on Opening Balance, Advance Balance, and Pending Invoices
-       * â€” none of those three actually filter by a From Date (Opening
+       * â€" none of those three actually filter by a From Date (Opening
        * Balance/Advance Balance key off the To Date only; Pending
        * Invoices has no date filter at all), so leaving the field
        * enabled there would suggest changing it does something when it
@@ -3198,7 +3344,7 @@ sap.ui.define(
        * Total PO, Material Receipts, ...) DOES use From Date, so it stays
        * enabled there, same as on the initial (pre-drill-in) search
        * screen. bAnyOtherPanel mirrors OpenItemsPanel.fragment.xml's own
-       * "is Opening Balance showing" visibility check â€” Opening Balance
+       * "is Opening Balance showing" visibility check â€" Opening Balance
        * has no mdShowX flag of its own; it's just whatever's left once
        * every other panel's flag is false.
        */
@@ -3241,20 +3387,20 @@ sap.ui.define(
           bShareOfBusiness;
 
         // Nothing else showing means Opening Balance (the default panel)
-        // is â€” disable, same as Advance/Pending Invoices above.
+        // is â€" disable, same as Advance/Pending Invoices above.
         return bAnyOtherPanel;
       },
 
       /**
        * Prompts to save the just-applied column selection as a named,
-       * reusable layout â€” same "Do you want to save this Layout?" step the
+       * reusable layout â€" same "Do you want to save this Layout?" step the
        * reference app shows right after Column Settings is confirmed.
        */
       _showSaveOpenItemsLayoutDialog: function (aSelectedKeys) {
         var that = this;
 
         // The dialog itself (and its Save button's press handler) is only
-        // ever built once, below â€” reopening it on a later call must NOT
+        // ever built once, below â€" reopening it on a later call must NOT
         // rely on aSelectedKeys via closure, since that would freeze the
         // very first selection ever passed in. Stash the current one on
         // `this` instead and have the press handler read it fresh each
@@ -3332,9 +3478,9 @@ sap.ui.define(
                     Category: that._sActiveOiCategory || "FI",
                   };
 
-                  // Reloads the page once the save (create/update) â€” and,
+                  // Reloads the page once the save (create/update) â€" and,
                   // when marking this layout Default, the follow-up
-                  // _clearOtherBackendDefaults call â€” have both actually
+                  // _clearOtherBackendDefaults call â€" have both actually
                   // committed on the backend. Same reasoning as
                   // _setBackendLayoutDefault: an in-place re-apply
                   // (_applyColumnSelectionToAllTables/onRefreshMasterDetail)
@@ -3359,7 +3505,7 @@ sap.ui.define(
                     function () {
                       // oLayout above was already saved with Default:bDefault
                       // directly, so all that's left is clearing Default on
-                      // whichever OTHER row held it before â€” re-saving this
+                      // whichever OTHER row held it before â€" re-saving this
                       // same layout again via _setBackendLayoutDefault would
                       // just be a second, fully redundant delete+create pair.
                       if (bDefault) {
@@ -3493,6 +3639,16 @@ sap.ui.define(
        * Compact Indian-unit label used in the Top Categories list so large
        * figures (Crores) fit the narrow panel instead of overflowing it.
        */
+      /**
+       * Truncates (never rounds) fNum to 2 decimal places â€" e.g. 5.9369690
+       * -> 5.93, not the 5.94 Math.round-style rounding would give. Shared
+       * by formatLakh/formatSidebarAmount so a Crore/Lakh figure never
+       * shows a value a paisa higher than what actually adds up.
+       */
+      _truncate2: function (fNum) {
+        return Math.floor(fNum * 100) / 100;
+      },
+
       formatLakh: function (fValue) {
         var fNum = parseFloat(fValue) || 0;
         var sSign = fNum < 0 ? "-" : "";
@@ -3501,24 +3657,34 @@ sap.ui.define(
         if (fAbs >= 1e7) {
           return (
             sSign +
-            (fAbs / 1e7).toLocaleString("en-IN", { maximumFractionDigits: 2 }) +
+            this._truncate2(fAbs / 1e7).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }) +
             " Cr"
           );
         }
         if (fAbs >= 1e5) {
           return (
             sSign +
-            (fAbs / 1e5).toLocaleString("en-IN", { maximumFractionDigits: 2 }) +
+            this._truncate2(fAbs / 1e5).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }) +
             " L"
           );
         }
         return (
-          sSign + fAbs.toLocaleString("en-IN", { maximumFractionDigits: 2 })
+          sSign +
+          this._truncate2(fAbs).toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
         );
       },
 
       /**
-       * Compact "â‚¹<n> Cr/L/K" amount used for the Finance (FI) sidebar rows â€”
+       * Compact "â‚¹<n> Cr/L/K" amount used for the Finance (FI) sidebar rows â€"
        * these sit in a narrow column next to the row label, so the full
        * formatBalanceValue figure (e.g. "â‚¹45,24,42,936") wraps/overflows;
        * this collapses it to Crore/Lakh/Thousand the same way formatLakh
@@ -3532,25 +3698,34 @@ sap.ui.define(
 
         if (fAbs >= 1e7) {
           return (
-            
+
             sSign +
-            (fAbs / 1e7).toLocaleString("en-IN", { maximumFractionDigits: 2 }) +
+            this._truncate2(fAbs / 1e7).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }) +
             " Cr"
           );
         }
         if (fAbs >= 1e5) {
           return (
-           
+
             sSign +
-            (fAbs / 1e5).toLocaleString("en-IN", { maximumFractionDigits: 2 }) +
+            this._truncate2(fAbs / 1e5).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }) +
             " L"
           );
         }
         if (fAbs >= 1e3) {
           return (
-            
+
             sSign +
-            (fAbs / 1e3).toLocaleString("en-IN", { maximumFractionDigits: 2 }) +
+            this._truncate2(fAbs / 1e3).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }) +
             " K"
           );
         }
@@ -3586,7 +3761,7 @@ sap.ui.define(
 
       /**
        * "Total quantity: <n>" label used in place of the vendor-name
-       * subtitle on Total PO value/Pending PO's identity tile â€” the
+       * subtitle on Total PO value/Pending PO's identity tile â€" the
        * vendor name is already visible in the top filter bar's Supplier
        * field, so every panel drops it; these two panels show a summed
        * item quantity there instead (Total PO's Menge / Pending PO's
@@ -3615,7 +3790,7 @@ sap.ui.define(
       },
 
       /**
-       * Quantity/Total Qty stat boxes on the Share of Business panel â€”
+       * Quantity/Total Qty stat boxes on the Share of Business panel â€"
        * ShareLifnrSet's Menge/TotalQty come back in KG, way too many
        * digits to read at a glance (e.g. 6220530), so show metric tons
        * instead (÷1000) with an "MT" suffix, same rounding as formatAmount.
@@ -3626,7 +3801,7 @@ sap.ui.define(
       },
 
       /**
-       * Value/Total Amount stat boxes on the Share of Business panel â€”
+       * Value/Total Amount stat boxes on the Share of Business panel â€"
        * shown in crores (Ã·1e7) with a "Cr" suffix instead of the exact
        * rupee figure, same scale as the sidebar's Total PO Value/Payments
        * rows (see formatSidebarAmount).
@@ -3684,7 +3859,7 @@ sap.ui.define(
       /**
        * Abbreviates a large amount for display inside a NumericContent tile
        * (e.g. GenericTile), whose numeric field is too narrow for full
-       * comma-formatted figures â€” and mis-truncates value strings that mix
+       * comma-formatted figures â€" and mis-truncates value strings that mix
        * digits with letters. Split the number and its Indian-unit suffix
        * (Cr / L / K) so the number goes in "value" and the suffix in the
        * dedicated "scale" property instead.
@@ -3704,7 +3879,7 @@ sap.ui.define(
         }
 
         // NumericContent silently hard-clips its value text to 4 characters
-        // total (sign included) â€” pick the most decimals that still fit
+        // total (sign included) â€" pick the most decimals that still fit
         // that budget instead of letting it truncate mid-number.
         var iBudget = 4 - sSign.length;
         var iIntDigits = Math.max(1, Math.floor(fScaled).toString().length);
@@ -3762,7 +3937,7 @@ sap.ui.define(
         this._renderPendingPOTypeBarChart(0);
       },
 
-      /** afterRendering hook for the Lots received panel's bar chart tile â€” see _renderLotsReceivedTypeBarChart. */
+      /** afterRendering hook for the Lots received panel's bar chart tile â€" see _renderLotsReceivedTypeBarChart. */
       onMdLotsReceivedBarChartHtmlRendered: function () {
         this._renderLotsReceivedTypeBarChart(0);
       },
@@ -3770,12 +3945,12 @@ sap.ui.define(
       /**
        * Draws the "Normal / Open item / Partial payment" chart that sits
        * as its own tile inside the Payments panel's stat-tiles row
-       * (mdStatTilesRow) â€” one horizontal bar per category
+       * (mdStatTilesRow) â€" one horizontal bar per category
        * (.mdHBarRow/.mdHBar/.mdHBarTrack), sourced from
        * /paymentsTypeTotals (same 3 fixed categories every time).
        * Clicking a bar filters the Payments table below down to that
        * category (toggle-to-clear, same as the monthly chart's month
-       * bars) â€” see _onPaymentsCategorySelected.
+       * bars) â€" see _onPaymentsCategorySelected.
        */
       _renderPaymentsTypeBarChart: function (iAttempt) {
         var that = this;
@@ -3859,12 +4034,12 @@ sap.ui.define(
 
       /**
        * Draws the "PO / Contract" chart that sits as its own tile inside
-       * the Total PO value panel's stat-tiles row (mdStatTilesRow) â€” one
+       * the Total PO value panel's stat-tiles row (mdStatTilesRow) â€" one
        * horizontal bar per PO document category (.mdHBarRow/.mdHBar/
        * .mdHBarTrack), sourced from /totalPOTypeTotals which splits
        * TotalPOSet's rows by Bstyp: "F" is a PO, "K" is a Contract (same
        * split-by-Bstyp rule everywhere else Bstyp is read). Same markup/
-       * CSS as _renderPaymentsTypeBarChart, and same click-to-filter â€”
+       * CSS as _renderPaymentsTypeBarChart, and same click-to-filter â€"
        * see _onTotalPOCategorySelected.
        */
       _renderTotalPOTypeBarChart: function (iAttempt) {
@@ -3950,11 +4125,11 @@ sap.ui.define(
       /**
        * Fired when a bar in the Total PO value "PO / Contract" chart is
        * clicked. Filters /totalPOItems (bound to the Total PO table) down
-       * to the rows in that Bstyp bucket â€” same toggle-to-clear behaviour
+       * to the rows in that Bstyp bucket â€" same toggle-to-clear behaviour
        * as the Payments chart: clicking the already-active bar clears the
        * filter back to the full list. See _onPaymentsCategorySelected.
        * Also recomputes /totalPOTotal ("Total PO amount") and /totalPOQty
-       * ("Total quantity") from whichever set is now showing â€” those two
+       * ("Total quantity") from whichever set is now showing â€" those two
        * stat tiles used to keep showing the grand total regardless of
        * which bar was clicked, since only the table (/totalPOItems, whose
        * own .length already drives "Total PO items" reactively) was being
@@ -3972,10 +4147,10 @@ sap.ui.define(
 
       /**
        * Recomputes /totalPOItems (bound to the Total PO table) from
-       * /totalPOItemsAll by combining BOTH active Total PO filters â€” the
+       * /totalPOItemsAll by combining BOTH active Total PO filters â€" the
        * PO/Contract bar-chart category (/mdTotalPOSelectedCategory, see
        * _onTotalPOCategorySelected) and the Material checkbox filter
-       * (/totalPOSelectedMaterials, see onTotalPOMaterialFilterChange) â€”
+       * (/totalPOSelectedMaterials, see onTotalPOMaterialFilterChange) â€"
        * so picking one doesn't silently drop the other. Also recomputes
        * /totalPOTotal ("Total PO amount") and /totalPOQty ("Total
        * quantity") from whichever rows are now showing, same as
@@ -4023,7 +4198,7 @@ sap.ui.define(
        * table (the "Filter" button next to Column Settings/Select Layout
        * on TotalPOPanel.fragment.xml), populated from /totalPOMaterialOptions
        * (every distinct Material actually present in the current Total PO
-       * read â€” see onTotalPOPress) rather than a fixed value list, since
+       * read â€" see onTotalPOPress) rather than a fixed value list, since
        * which materials exist varies per supplier/date range.
        */
       onTotalPOMaterialFilterPress: function (oEvent) {
@@ -4062,7 +4237,7 @@ sap.ui.define(
         }
       },
 
-      /** Ticked/unticked in the Material filter popover's checkbox list â€” applied immediately, same live-filter feel as the PO/Contract chart bars. */
+      /** Ticked/unticked in the Material filter popover's checkbox list â€" applied immediately, same live-filter feel as the PO/Contract chart bars. */
       onTotalPOMaterialFilterChange: function () {
         var oList = this.byId("totalPOMaterialFilterList");
         if (!oList) return;
@@ -4076,7 +4251,7 @@ sap.ui.define(
         this._applyTotalPOFilters();
       },
 
-      /** "Clear" in the Material filter popover â€” back to every material shown. */
+      /** "Clear" in the Material filter popover â€" back to every material shown. */
       onTotalPOMaterialFilterClear: function () {
         var oList = this.byId("totalPOMaterialFilterList");
         if (oList) {
@@ -4229,11 +4404,11 @@ sap.ui.define(
 
       /**
        * Draws the vertical bar chart that sits full-width below the Lots
-       * received panel's stat-tiles row â€” one column per code in the fixed
+       * received panel's stat-tiles row â€" one column per code in the fixed
        * LOTS_RECEIVED_CODES list (.mdBarCol/.mdBar/.mdBarValue/
        * .mdBarLabel), sourced from /lotsReceivedTypeTotals which counts
-       * LotRecSet's rows by Vcode â€” number of lots, not summed quantity.
-       * A/A1-A5 bars are blue, R/R1-R3 bars are red (.mdBarNegative â€” same
+       * LotRecSet's rows by Vcode â€" number of lots, not summed quantity.
+       * A/A1-A5 bars are blue, R/R1-R3 bars are red (.mdBarNegative â€" same
        * red used for a negative balance elsewhere). Same click-to-filter
        * as the Opening balance panel's "Last 12 Months Balance" chart (see
        * _renderMonthlyBarChart), just keyed by usage-decision code instead
@@ -4325,13 +4500,13 @@ sap.ui.define(
 
       /**
        * Fired when a bar in the Lots received by-Vcode chart (fixed
-       * A/A1-A5/R/R1-R3 set â€” see LOTS_RECEIVED_CODES) is clicked. Filters
+       * A/A1-A5/R/R1-R3 set â€" see LOTS_RECEIVED_CODES) is clicked. Filters
        * /lotsReceivedItems (bound to the Lots received table) down to the
        * rows with that Vcode. Same toggle-to-clear behaviour as the AUD
        * qty chart: clicking the already-active bar clears the filter back
        * to the full list. See _onAudQtyCategorySelected. Also recomputes
        * /lotsReceivedTotal ("Total received qty") from whichever set is
-       * now showing â€” "Total lots received" already reads
+       * now showing â€" "Total lots received" already reads
        * /lotsReceivedItems.length directly so it updates on its own, but
        * the qty total was a separately-stored figure that used to keep
        * showing the grand total regardless of which bar was clicked.
@@ -4371,7 +4546,7 @@ sap.ui.define(
       /**
        * Refresh button in the master-detail header: re-runs the current
        * Company Code/Supplier/date-range search, which reloads
-       * OpenItemsSet from scratch and â€” via _loadSupplierMasterDetail â€”
+       * OpenItemsSet from scratch and â€" via _loadSupplierMasterDetail â€"
        * resets the month filter, bar chart and line items back to the
        * full, unfiltered result (same as a fresh Supplier search).
        */
@@ -4389,7 +4564,7 @@ sap.ui.define(
       /**
        * Draws the "Balance movement" bar chart from every distinct posting
        * month present in the master-detail's full OpenItemsSet result
-       * (/openItemsAll â€” unfiltered by any month click), oldest to newest.
+       * (/openItemsAll â€" unfiltered by any month click), oldest to newest.
        * Clicking a bar filters the "Line items" table below (/openItems)
        * down to just that month, matched back against /openItemsAll.
        */
@@ -4427,7 +4602,7 @@ sap.ui.define(
 
           // Always exactly 12 fixed calendar months, ending at the searched
           // To Date (falling back to From Date when no To Date was
-          // entered) â€” e.g. To Date = 28.02.2025 draws Mar 2024 through
+          // entered) â€" e.g. To Date = 28.02.2025 draws Mar 2024 through
           // Feb 2025. Months with no postings still get their own bar (a
           // flat/zero one) instead of being skipped, so the chart is always
           // a consistent 12-month strip.
@@ -4561,7 +4736,7 @@ sap.ui.define(
 
       /**
        * Builds exactly 6 fixed calendar-month buckets ending at sAnchorDate
-       * (the searched "From Date") â€” e.g. anchor 28.02.2025 gives Sep 2024,
+       * (the searched "From Date") â€" e.g. anchor 28.02.2025 gives Sep 2024,
        * Oct 2024, Nov 2024, Dec 2024, Jan 2025, Feb 2025, in that order,
        * every time, regardless of which months actually have postings.
        * Months with no matching open items still get a bucket (netAmt: 0,
@@ -4626,7 +4801,7 @@ sap.ui.define(
        * Builds one calendar-month bucket for every month between
        * sFromDate and sToDate inclusive (used by the Transactions panel's
        * "Balance movement" chart, which spans whatever date range the user
-       * searched â€” unlike the Opening balance chart's fixed 12-month
+       * searched â€" unlike the Opening balance chart's fixed 12-month
        * window). Falls back to a single month if the range is invalid or
        * inverted. Capped at 60 months so an accidentally huge range (e.g.
        * a multi-year To Date) can't blow up the chart.
@@ -4700,7 +4875,7 @@ sap.ui.define(
        * the Line items table: current month's NetAmt total vs. the month
        * immediately before it (chronologically, among months that actually
        * have data). With no month clicked, "current" defaults to the most
-       * recent month and "prior" to the one before it â€” i.e. by default it
+       * recent month and "prior" to the one before it â€" i.e. by default it
        * compares the last two bars in the chart; clicking any bar instead
        * compares that bar against the one immediately to its left.
        */
@@ -4738,7 +4913,7 @@ sap.ui.define(
       },
 
       /**
-       * Opens the "Payments â€” Select Period" dialog (fires from clicking
+       * Opens the "Payments â€" Select Period" dialog (fires from clicking
        * the "Payments" row in the Finance (FI) panel).
        */
       /**
@@ -4764,7 +4939,7 @@ sap.ui.define(
 
         // _showMdPanel runs BEFORE sToDate is read (not after, like the
         // filters used to be built) because it's the thing that swaps a
-        // still-untouched FY-start default over to today â€” reading
+        // still-untouched FY-start default over to today â€" reading
         // _sKeyDateTo before that swap ran was capturing the stale
         // FY-start value on the very first non-Opening-Balance panel
         // pressed each session, so e.g. Total PO's very first query used
@@ -4781,7 +4956,7 @@ sap.ui.define(
           new Filter("FromDate", FilterOperator.EQ, new Date(sFromDate)),
         ];
 
-        // Only constrain by ToDate when the user actually picked one â€”
+        // Only constrain by ToDate when the user actually picked one â€"
         // when it's empty, the read should be From Date onward, not
         // silently reusing FromDate as both ends of the range.
         if (sToDate) {
@@ -4803,7 +4978,7 @@ sap.ui.define(
             console.log("transactionperiodSet response:", aRawResults);
 
             // transactionperiodSet uses lower-case "budat"/"Augdt" (unlike
-            // OpenItemsSet/OpBalAsOnSet's "Budat"/"Augbl") â€” normalize into
+            // OpenItemsSet/OpBalAsOnSet's "Budat"/"Augbl") â€" normalize into
             // the same {Belnr, Budat, Blart, NetAmt, Augbl} shape the Line
             // items / Payments tables already use.
             var aItems = aRawResults.map(function (o) {
@@ -4905,7 +5080,7 @@ sap.ui.define(
 
         // VendBalAdvSet expects Lifnr zero-padded to 10 digits in the filter
         // (e.g. "0001000047"), unlike OpBalAsOnSet/transactionperiodSet which
-        // take it as entered â€” pad here the same way _onCategorySelected
+        // take it as entered â€" pad here the same way _onCategorySelected
         // pads Akont for VENDERSet.
         var sLifnrPadded = String(sLifnr).padStart(10, "0");
         var aFilters = [
@@ -4972,7 +5147,7 @@ sap.ui.define(
       /**
        * Fired from the "Debit notes" row in the master-detail Finance (FI)
        * panel. Calls DebitAmt1Set for the current Company Code / Supplier
-       * over the searched From/To Date range (BudatFrom/BudatTo, both EQ â€”
+       * over the searched From/To Date range (BudatFrom/BudatTo, both EQ â€"
        * this service takes the range as two discrete filter values rather
        * than a Budat BT like Payments), e.g.:
        *   DebitAmt1Set?$filter=Bukrs eq '1000' and Lifnr eq '0001000481'
@@ -5069,13 +5244,13 @@ sap.ui.define(
       /**
        * Fired from the "Total PO value" row in the master-detail Materials
        * (MM) panel. Calls TotalPOSet for the current Company Code / Supplier
-       * over the searched From/To Date range (BudatFrom/BudatTo, both EQ â€”
+       * over the searched From/To Date range (BudatFrom/BudatTo, both EQ â€"
        * same two-discrete-filter pattern as Debit notes), e.g.:
        *   TotalPOSet?$filter=Bukrs eq '1000' and Lifnr eq '0001000093'
        *   and BudatFrom eq datetime'...' and BudatTo eq datetime'...'
        * TotalPOSet returns one row per PO item (Ebeln/Ebelp) with Netwr
        * already as a plain positive net value and Name1 as the vendor name
-       * â€” summed for the "Total PO amount" stat tile, counted for
+       * â€" summed for the "Total PO amount" stat tile, counted for
        * "Total PO items".
        */
       onTotalPOPress: function () {
@@ -5097,7 +5272,7 @@ sap.ui.define(
         // before that swap ran meant the very first "Total PO value" press
         // each session (landing here straight from Opening Balance, whose
         // To Date still equals From Date/FY-start) queried TotalPOSet with
-        // BudatFrom === BudatTo â€” a single day â€” instead of FY-start-to-
+        // BudatFrom === BudatTo â€" a single day â€" instead of FY-start-to-
         // today, so it came back empty ("No Purchase Order Data") even for
         // suppliers with real PO history.
         this._showMdPanel("mdShowTotalPO");
@@ -5147,6 +5322,7 @@ sap.ui.define(
                 Bstyp: o.Bstyp,
                 Matnr: o.Matnr,
                 Txz01: o.Txz01,
+                Maktx: o.Maktx,
                 Menge: o.Menge,
                 Meins: o.Meins,
                 Netpr: o.Netpr,
@@ -5156,7 +5332,7 @@ sap.ui.define(
               };
             });
 
-            // Split by Bstyp â€” "F" is a PO, "K" is a Contract â€” into the
+            // Split by Bstyp â€" "F" is a PO, "K" is a Contract â€" into the
             // two bars drawn by _renderTotalPOTypeBarChart (PO / Contract).
             var fPoAmount = 0,
               fContractAmount = 0;
@@ -5174,7 +5350,7 @@ sap.ui.define(
             ];
 
             // Unique Material options for the Material filter popover
-            // (onTotalPOMaterialFilterPress) â€” one entry per distinct
+            // (onTotalPOMaterialFilterPress) â€" one entry per distinct
             // Matnr actually present in this read, labelled with its
             // description (Txz01) same as the table's own Material column,
             // so the checkbox list only ever offers values that can
@@ -5205,7 +5381,7 @@ sap.ui.define(
             oReconModel.setProperty("/totalPOSupplierName", sSupplierName);
             oReconModel.setProperty("/totalPOBusy", false);
 
-            // Draw straight away â€” don't wait for the chart tile's own
+            // Draw straight away â€" don't wait for the chart tile's own
             // afterRendering, which only fires the first time this panel's
             // core:HTML is added to the DOM, not on every subsequent
             // "Total PO value" press (see _renderTotalPOTypeBarChart).
@@ -5235,14 +5411,14 @@ sap.ui.define(
       /**
        * Fired from the "Pending PO" row in the master-detail Materials (MM)
        * panel. Calls pendingpoSet for the current Company Code / Supplier
-       * over the searched From/To Date range â€” pendingpoSet takes the range
+       * over the searched From/To Date range â€" pendingpoSet takes the range
        * as FromDate/ToDate (its own filter names, unlike TotalPOSet's
        * BudatFrom/BudatTo), e.g.:
        *   pendingpoSet?$filter=Bukrs eq '1000' and Lifnr eq '0001000093'
        *   and FromDate eq datetime'...' and ToDate eq datetime'...'
        * pendingpoSet returns one row per open PO item with PendQty (the
        * still-pending quantity) and PendVal (its net value, already a plain
-       * positive amount) â€” summed for "Total pending PO amount", counted
+       * positive amount) â€" summed for "Total pending PO amount", counted
        * for "Total pending PO items".
        */
       onPendingPOPress: function () {
@@ -5308,6 +5484,7 @@ sap.ui.define(
                 Bstyp: o.Bstyp,
                 Matnr: o.Matnr,
                 Txz01: o.Txz01,
+                Maktx: o.Maktx,
                 Menge: o.Menge,
                 EketMenge: o.EketMenge,
                 Wemng: o.Wemng,
@@ -5383,11 +5560,11 @@ sap.ui.define(
       /**
        * Fired from the "Lots accepted" row in the master-detail sidebar
        * (QUALITY (QM) group). Calls LotAcceptSet for the current Supplier
-       * over the searched From/To Date range (Fromdate/Todate â€” LotAcceptSet's
+       * over the searched From/To Date range (Fromdate/Todate â€" LotAcceptSet's
        * own filter names). LotAcceptSet returns one row per accepted quality
        * lot: Prueflos (lot number), Werks (plant), Qkennzahl (acceptance %),
-       * Losmenge (lot quantity) â€” summed for "Total accepted qty", counted
-       * for "Total lots accepted". No Bukrs filter â€” LotAcceptSet is keyed
+       * Losmenge (lot quantity) â€" summed for "Total accepted qty", counted
+       * for "Total lots accepted". No Bukrs filter â€" LotAcceptSet is keyed
        * by Lifnr only, unlike TotalPOSet/pendingpoSet.
        */
       onLotsAcceptedPress: function () {
@@ -5439,12 +5616,19 @@ sap.ui.define(
                 Werks: o.Werks,
                 Art: o.Art,
                 Matnr: o.Matnr,
+                Maktx: o.Maktx,
                 Lifnr: o.Lifnr,
                 Vcode: o.Vcode,
                 Qkennzahl: o.Qkennzahl,
                 Charg: o.Charg,
                 Losmenge: fLosmenge,
                 Enstehdat: o.Enstehdat,
+                Objnr: o.Objnr,
+                Obtyp: o.Obtyp,
+                Stat01: o.Stat01,
+                Kzart: o.Kzart,
+                Aufnr: o.Aufnr,
+                Mblnr: o.Mblnr,
               };
             });
 
@@ -5484,11 +5668,11 @@ sap.ui.define(
       /**
        * Fired from the "Lots received" row in the master-detail sidebar
        * (QUALITY (QM) group). Calls LotRecSet for the current Supplier
-       * over the searched From/To Date range (FromDate/ToDate â€” LotRecSet's
+       * over the searched From/To Date range (FromDate/ToDate â€" LotRecSet's
        * own filter names). LotRecSet returns one row per received quality
        * lot: Prueflos (lot number), Werks (plant), Losmenge (lot quantity)
-       * â€” summed for "Total received qty", counted for "Total lots
-       * received". No Bukrs filter â€” LotRecSet is keyed by Lifnr only,
+       * â€" summed for "Total received qty", counted for "Total lots
+       * received". No Bukrs filter â€" LotRecSet is keyed by Lifnr only,
        * same as LotAcceptSet.
        */
       onLotsReceivedPress: function () {
@@ -5543,24 +5727,26 @@ sap.ui.define(
                 Obtyp: o.Obtyp,
                 Stat01: o.Stat01,
                 Matnr: o.Matnr,
+                Maktx: o.Maktx,
                 Lifnr: o.Lifnr,
                 Kzart: o.Kzart,
                 Vcode: o.Vcode,
                 Qkennzahl: o.Qkennzahl,
                 Aufnr: o.Aufnr,
+                Mblnr: o.Mblnr,
                 Charg: o.Charg,
                 Losmenge: fLosmenge,
                 Enstehdat: o.Enstehdat,
               };
             });
 
-            // Split by Vcode â€” a fixed set of ten bars, always drawn in
+            // Split by Vcode â€" a fixed set of ten bars, always drawn in
             // this order regardless of which codes this result actually
             // contains (0 for codes with no lots), counting lots rather
-            // than summing Losmenge â€” into the bars drawn by
+            // than summing Losmenge â€" into the bars drawn by
             // _renderLotsReceivedTypeBarChart. A/A1-A5 are "accepted"-style
             // codes (drawn blue); R/R1-R3 are "rejected"-style codes (drawn
-            // red) â€” see LOTS_RECEIVED_CODES.
+            // red) â€" see LOTS_RECEIVED_CODES.
             var oByCode = {};
             LOTS_RECEIVED_CODES.forEach(function (sKey) {
               oByCode[sKey] = 0;
@@ -5590,7 +5776,7 @@ sap.ui.define(
             );
             oReconModel.setProperty("/lotsReceivedBusy", false);
 
-            // Draw straight away â€” don't wait for the chart tile's own
+            // Draw straight away â€" don't wait for the chart tile's own
             // afterRendering, which only fires the first time this panel's
             // core:HTML is added to the DOM, not on every subsequent "Lots
             // received" press (see _renderLotsReceivedTypeBarChart).
@@ -5624,12 +5810,12 @@ sap.ui.define(
       /**
        * Fired from the "Accepted qty" row in the master-detail sidebar
        * (MATERIALS (MM) group). Calls AcceptSet for the current Supplier
-       * over the searched From/To Date range (Fromdate/Todate â€” AcceptSet's
+       * over the searched From/To Date range (Fromdate/Todate â€" AcceptSet's
        * own filter names, keyed by Lifnr only, same as LotRejectSet).
        * AcceptSet returns one row per accepted quality lot: Prueflos (lot
        * number), Werks (plant), Vcode (usage-decision code), Losmenge (lot
-       * quantity) â€” summed for "Total accepted qty", counted for "Total
-       * lots accepted". Same stat-tile + table layout as Rejected qty â€” no
+       * quantity) â€" summed for "Total accepted qty", counted for "Total
+       * lots accepted". Same stat-tile + table layout as Rejected qty â€" no
        * chart.
        */
       onAcceptedQtyPress: function () {
@@ -5679,6 +5865,7 @@ sap.ui.define(
                 Werks: o.Werks,
                 Art: o.Art,
                 Matnr: o.Matnr,
+                Maktx: o.Maktx,
                 Lifnr: o.Lifnr,
                 Vcode: o.Vcode,
                 Qkennzahl: o.Qkennzahl,
@@ -5686,6 +5873,11 @@ sap.ui.define(
                 Mblnr: o.Mblnr,
                 Losmenge: fLosmenge,
                 Enstehdat: o.Enstehdat,
+                Objnr: o.Objnr,
+                Obtyp: o.Obtyp,
+                Stat01: o.Stat01,
+                Kzart: o.Kzart,
+                Aufnr: o.Aufnr,
               };
             });
 
@@ -5721,12 +5913,12 @@ sap.ui.define(
       /**
        * Fired from the "Rejected qty" row in the master-detail sidebar
        * (MATERIALS (MM) group). Calls LotRejectSet for the current Supplier
-       * over the searched From/To Date range (Fromdate/Todate â€” LotRejectSet's
+       * over the searched From/To Date range (Fromdate/Todate â€" LotRejectSet's
        * own filter names, same lowercase-"date" casing as LotAcceptSet).
        * LotRejectSet returns one row per rejected quality lot: Prueflos (lot
        * number), Werks (plant), Vcode (reject code), Losmenge (lot quantity)
-       * â€” summed for "Total rejected qty", counted for "Total lots
-       * rejected". No Bukrs filter â€” LotRejectSet is keyed by Lifnr only,
+       * â€" summed for "Total rejected qty", counted for "Total lots
+       * rejected". No Bukrs filter â€" LotRejectSet is keyed by Lifnr only,
        * same as LotAcceptSet/LotRecSet.
        */
       onRejectedQtyPress: function () {
@@ -5776,12 +5968,19 @@ sap.ui.define(
                 Werks: o.Werks,
                 Art: o.Art,
                 Matnr: o.Matnr,
+                Maktx: o.Maktx,
                 Lifnr: o.Lifnr,
                 Vcode: o.Vcode,
                 Qkennzahl: o.Qkennzahl,
                 Charg: o.Charg,
                 Losmenge: fLosmenge,
                 Enstehdat: o.Enstehdat,
+                Objnr: o.Objnr,
+                Obtyp: o.Obtyp,
+                Stat01: o.Stat01,
+                Kzart: o.Kzart,
+                Aufnr: o.Aufnr,
+                Mblnr: o.Mblnr,
               };
             });
 
@@ -5817,13 +6016,13 @@ sap.ui.define(
       /**
        * Fired from the "AUD qty" row in the master-detail sidebar (QUALITY
        * (QM) group). Calls LotAUDSet for the current Supplier over the
-       * searched From/To Date range (Fromdate/Todate â€” LotAUDSet's own
+       * searched From/To Date range (Fromdate/Todate â€" LotAUDSet's own
        * filter names, keyed by Lifnr only, same as LotAcceptSet/LotRejectSet).
        * LotAUDSet returns one row per AUD quality lot: Prueflos (lot
        * number), Werks (plant), Vcode (usage-decision code), Losmenge (lot
-       * quantity) â€” summed for "Total AUD qty", counted for "Total lots
+       * quantity) â€" summed for "Total AUD qty", counted for "Total lots
        * AUD". Same stat-tile + table + chart layout as Lots accepted, but
-       * with four bars â€” A1/A2/A3/A5 â€” instead of two.
+       * with four bars â€" A1/A2/A3/A5 â€" instead of two.
        */
       onAudQtyPress: function () {
         this._sActiveMdPanel = "audqty"; this._persistUiState();
@@ -5874,6 +6073,7 @@ sap.ui.define(
                 Werks: o.Werks,
                 Art: o.Art,
                 Matnr: o.Matnr,
+                Maktx: o.Maktx,
                 Lifnr: o.Lifnr,
                 Vcode: o.Vcode,
                 Qkennzahl: o.Qkennzahl,
@@ -5881,6 +6081,11 @@ sap.ui.define(
                 Mblnr: o.Mblnr,
                 Losmenge: fLosmenge,
                 Enstehdat: o.Enstehdat,
+                Objnr: o.Objnr,
+                Obtyp: o.Obtyp,
+                Stat01: o.Stat01,
+                Kzart: o.Kzart,
+                Aufnr: o.Aufnr,
               };
             });
 
@@ -6121,6 +6326,7 @@ sap.ui.define(
               MessageToast.show("No " + sLabel + " breakdown data found.");
             }
             oReconModel.setProperty("/shareLifnrItems", aItems);
+            oReconModel.setProperty("/sobAllShareLifnrItems", aItems);
             oReconModel.setProperty("/shareLifnrBusy", false);
           },
           error: function () {
@@ -6135,7 +6341,7 @@ sap.ui.define(
        * Fired (via _wireSobTileClicks) when the "Total Qty" box on the
        * Share of Business panel is clicked. Calls TotalShareBusinessSet
        * filtered by BudatFrom only (company-wide, not scoped to a single
-       * supplier/Bukrs â€” unlike ShareLifnrSet), e.g.:
+       * supplier/Bukrs â€" unlike ShareLifnrSet), e.g.:
        *   TotalShareBusinessSet?$filter=BudatFrom eq datetime'2025-04-01T00:00:00'
        * and renders every supplier's row (Lifnr/Name1/Menge/Netwr/SobMenge/
        * PrevMenge/PrevNetwr/SobPrevMenge) in its own table, same pattern as
@@ -6155,6 +6361,7 @@ sap.ui.define(
         var oReconModel = this._oReconModel;
         var sFromDate = this._sKeyDate;
         var sToDate = this._sKeyDateTo || this._sKeyDate;
+        var sLifnr = oReconModel.getProperty("/mdLifnr");
 
         if (!sFromDate) {
           MessageToast.show("From Date is required.");
@@ -6163,6 +6370,7 @@ sap.ui.define(
 
         var oModel = this.getOwnerComponent().getModel();
         var aFilters = [
+          new Filter("Lifnr", FilterOperator.EQ, sLifnr),
           new Filter("BudatFrom", FilterOperator.EQ, new Date(sFromDate)),
           new Filter("BudatTo", FilterOperator.EQ, new Date(sToDate)),
         ];
@@ -6180,10 +6388,12 @@ sap.ui.define(
           filters: aFilters,
           success: function (oData) {
             var aItems = oData.results || [];
+
             if (aItems.length === 0) {
               MessageToast.show("No Total Qty breakdown data found.");
             }
             oReconModel.setProperty("/totalShareBusinessItems", aItems);
+            oReconModel.setProperty("/sobAllTotalShareBusinessItems", aItems);
             oReconModel.setProperty("/totalShareBusinessBusy", false);
           },
           error: function () {
@@ -6194,15 +6404,88 @@ sap.ui.define(
         });
       },
 
+      _loadTotalShareBusinessBreakdownFiltered: function (aSelectedMatnrs) {
+        var oReconModel = this._oReconModel;
+        var sFromDate = this._sKeyDate;
+        var sToDate = this._sKeyDateTo || this._sKeyDate;
+        var sLifnr = oReconModel.getProperty("/mdLifnr");
+
+        if (!sFromDate || !aSelectedMatnrs || aSelectedMatnrs.length === 0) {
+          MessageToast.show("From Date and materials are required.");
+          return;
+        }
+
+        var oModel = this.getOwnerComponent().getModel();
+        oReconModel.setProperty("/totalShareBusinessBusy", true);
+
+        // Build OR filter for multiple materials
+        var aMatnrFilters = [];
+        aSelectedMatnrs.forEach(function (sMatnr) {
+          aMatnrFilters.push(new Filter("Matnr", FilterOperator.EQ, sMatnr));
+        });
+
+        // Create combined filters: Lifnr AND (Matnr OR Matnr OR ...) AND BudatFrom AND BudatTo
+        var aFilters = [
+          new Filter("Lifnr", FilterOperator.EQ, sLifnr),
+          new Filter({
+            filters: aMatnrFilters,
+            and: false  // OR condition
+          }),
+          new Filter("BudatFrom", FilterOperator.EQ, new Date(sFromDate)),
+          new Filter("BudatTo", FilterOperator.EQ, new Date(sToDate)),
+        ];
+
+        var that = this;
+
+        oModel.read("/TotShareMatBusinessSet", {
+          filters: aFilters,
+          success: function (oData) {
+            var aItems = oData.results || [];
+            oReconModel.setProperty("/totalShareBusinessItems", aItems);
+
+            // Calculate totals from filtered results
+            that._calculateTotalQtyAndAmount(aItems);
+
+            oReconModel.setProperty("/totalShareBusinessBusy", false);
+            if (aItems.length === 0) {
+              MessageToast.show("No data found for selected material(s).");
+            } else {
+              MessageToast.show("Loaded " + aItems.length + " record(s).");
+            }
+          },
+          error: function (oError) {
+            oReconModel.setProperty("/totalShareBusinessItems", []);
+            oReconModel.setProperty("/totalShareBusinessBusy", false);
+            MessageToast.show("Error loading filtered Total Qty breakdown: " + (oError.message || "Unknown error"));
+          }
+        });
+      },
+
+      _calculateTotalQtyAndAmount: function (aItems) {
+        var fTotalQty = 0;
+        var fTotalAmount = 0;
+
+        if (aItems && aItems.length > 0) {
+          aItems.forEach(function (item) {
+            fTotalQty += parseFloat(item.Menge) || 0;
+            fTotalAmount += parseFloat(item.Netwr) || 0;
+          });
+        }
+
+        var oReconModel = this._oReconModel;
+        oReconModel.setProperty("/shareOfBusinessItems/1/Value", fTotalQty);
+        oReconModel.setProperty("/shareOfBusinessItems/4/Value", fTotalAmount);
+      },
+
       /**
        * Fired from the "Material receipts" row in the master-detail
        * Materials (MM) panel. Calls MatReceiptSet for the current Company
        * Code / Supplier over the searched From/To Date range (Fromdate/
-       * Todate â€” MatReceiptSet's own filter names, same as LotAcceptSet/
+       * Todate â€" MatReceiptSet's own filter names, same as LotAcceptSet/
        * LotAUDSet but with a Bukrs filter too, like TotalPOSet). MatReceiptSet
        * returns one row per goods-receipt line: Mblnr (material document),
        * Werks (plant), Ebeln (PO number), Bwart (movement type), Menge
-       * (quantity), Budat_mkpf (posting date) â€” counted for "Material
+       * (quantity), Budat_mkpf (posting date) â€" counted for "Material
        * receipt items", no amount/chart (goods receipts have no value
        * field to chart or sum).
        */
@@ -6265,6 +6548,7 @@ sap.ui.define(
                 Ebelp: o.Ebelp,
                 Bwart: o.Bwart,
                 Matnr: o.Matnr,
+                Maktx: o.Maktx,
                 Lgort: o.Lgort,
                 Menge: fMenge,
                 Meins: o.Meins,
@@ -6300,12 +6584,12 @@ sap.ui.define(
        * Fired from the "Vendor returns" row in the master-detail Materials
        * (MM) panel, nested under Material receipts. Calls VendorReturnsSet
        * for the current Company Code / Supplier over the searched From/To
-       * Date range (Fromdate/Todate â€” VendorReturnsSet's own filter names,
+       * Date range (Fromdate/Todate â€" VendorReturnsSet's own filter names,
        * same Bukrs+Lifnr filter shape as MatReceiptSet). VendorReturnsSet
        * returns one row per goods-return line: Mblnr (material document),
        * Werks (plant), Ebeln (PO number), Bwart (movement type), Menge
-       * (quantity), BudatMkpf (posting date â€” note the different casing
-       * from MatReceiptSet's Budat_mkpf) â€” counted for "Return items", no
+       * (quantity), BudatMkpf (posting date â€" note the different casing
+       * from MatReceiptSet's Budat_mkpf) â€" counted for "Return items", no
        * amount/chart, same as Material receipts.
        */
       onVendorReturnsPress: function () {
@@ -6367,6 +6651,7 @@ sap.ui.define(
                 Ebelp: o.Ebelp,
                 Bwart: o.Bwart,
                 Matnr: o.Matnr,
+                Maktx: o.Maktx,
                 Lgort: o.Lgort,
                 Menge: fMenge,
                 Meins: o.Meins,
@@ -6402,11 +6687,11 @@ sap.ui.define(
        * Fired from the "Pending invoices" row in the master-detail
        * Materials (MM) panel. Calls PendInvValuesSet for the current
        * Company Code / Supplier / To Date (same Bukrs/Lifnr/Budat pattern
-       * as Advance balance/Opening balance â€” "value as on <To Date>"), e.g.:
+       * as Advance balance/Opening balance â€" "value as on <To Date>"), e.g.:
        *   PendInvValuesSet?$filter=Bukrs eq '1000' and Lifnr eq '001000047'
        *   and Budat eq datetime'...'
        * PendInvValuesSet returns Bukrs/Name/Belnr/Lifnr/Umskz/Blart/Budat/
-       * Dmbtr/Shkzg â€” no clearing document, so Status just renders the
+       * Dmbtr/Shkzg â€" no clearing document, so Status just renders the
        * blank/"Open" default like Advance balance/Debit notes.
        */
       onPendingInvoicesPress: function () {
@@ -6492,7 +6777,7 @@ sap.ui.define(
        * Fired from the "Payments" row in the master-detail Finance (FI)
        * panel. Calls PmtSelPrdSet directly for the current Company Code /
        * Supplier / date range already loaded on the page (same
-       * Bukrs/Lifnr/From-To Date as Opening balance/Transactions â€” no
+       * Bukrs/Lifnr/From-To Date as Opening balance/Transactions â€" no
        * separate date-range dialog), e.g.:
        *   PmtSelPrdSet?$filter=Budat ge datetime'...' and Budat le
        *   datetime'...' and Bukrs eq '1000' and Lifnr eq '6000020'
@@ -6570,7 +6855,7 @@ sap.ui.define(
             // This service raises a business exception (HTTP 400,
             // /IWBEP/CM_MGW_RT/022 "Data is not Found") instead of
             // returning 200 with an empty results array when no rows
-            // match the date range â€” treat that specific case as "no
+            // match the date range â€" treat that specific case as "no
             // payments found" rather than a real error.
             var bNoDataFound = false;
             try {
@@ -6597,7 +6882,7 @@ sap.ui.define(
       /**
        * Builds a Date pinned to UTC midnight for a "yyyy-MM-dd" value, so
        * the OData v2 model's Edm.DateTime serialization always comes out
-       * as "yyyy-MM-ddT00:00:00" â€” no milliseconds, no "Z"/offset â€”
+       * as "yyyy-MM-ddT00:00:00" â€" no milliseconds, no "Z"/offset â€"
        * regardless of the browser's local timezone.
        */
       _toUtcMidnight: function (sYyyyMmDd) {
@@ -6608,9 +6893,9 @@ sap.ui.define(
       /**
        * Maps a PmtSelPrdSet response into the shape the Payments table
        * binds to. Blart is constant ("KZ") across every row here, so
-       * Pmttype ("ON_ACCOUNT" / "CLEARED") is carried through instead â€”
+       * Pmttype ("ON_ACCOUNT" / "CLEARED") is carried through instead â€"
        * that's the field that actually distinguishes rows in this
-       * response â€” sums the signed total, and switches the master-detail
+       * response â€" sums the signed total, and switches the master-detail
        * right panel into this Payments view (mdShowPayments).
        */
       _showPaymentsPanel: function (aResults, sPeriodLabel) {
@@ -6668,6 +6953,7 @@ sap.ui.define(
        */
       _categorizePmttype: function (sPmttype) {
         var sType = (sPmttype || "").toLowerCase();
+        if (sType.indexOf("advance") !== -1) return "advance";
         if (sType.indexOf("partial") !== -1) return "partial";
         if (sType.indexOf("open") !== -1) return "open";
         // "Normal"/"NORMAL"/blank/anything else not matched above.
@@ -6677,7 +6963,7 @@ sap.ui.define(
       /**
        * Groups the already-categorized Payments items (see
        * _categorizePmttype/PmtCategory) into exactly three fixed
-       * categories â€” Normal, Open item, Partial payment â€” always
+       * categories â€" Normal, Open item, Partial payment â€" always
        * returned in that order (0 when a category has no rows) so the
        * bar chart in the stat-tiles row is always three bars, not a
        * variable-length list. Sums each group's already-signed NetAmt.
@@ -6687,11 +6973,13 @@ sap.ui.define(
           { key: "normal", label: "Normal", amount: 0 },
           { key: "open", label: "On Account", amount: 0 },
           { key: "partial", label: "Partial payment", amount: 0 },
+          { key: "advance", label: "Advance", amount: 0 },
         ];
         var oByKey = {
           normal: aCategories[0],
           open: aCategories[1],
           partial: aCategories[2],
+          advance: aCategories[3],
         };
 
         (aItems || []).forEach(function (o) {
@@ -6704,7 +6992,7 @@ sap.ui.define(
       /**
        * Fired when a bar in the Payments-by-type chart is clicked.
        * Filters /paymentsItems (bound to the Payments table) down to the
-       * items in that category â€” same toggle-to-clear behaviour as the
+       * items in that category â€" same toggle-to-clear behaviour as the
        * monthly chart: clicking the already-active category clears the
        * filter back to the full list.
        */
@@ -7101,6 +7389,357 @@ sap.ui.define(
       onSupplierDialogClose: function () {
         if (this._oSupplierDialog) this._oSupplierDialog.close();
       },
+
+      // ═══════════════════════════════════════════════════════════════════
+      //  QC CHARACTERISTICS FOR LOT NUMBER
+      // ═══════════════════════════════════════════════════════════════════
+
+      onLotsReceivedLotNumberPress: function (oEvent) {
+        var that = this;
+        var oSource = oEvent.getSource();
+        var oContext = oSource.getBindingContext("recon");
+
+        if (!oContext) return;
+
+        var oLotData = oContext.getObject();
+        var sPrueflos = oLotData.Prueflos;
+        var sWerks = oLotData.Werks;
+        var sMatnr = oLotData.Matnr;
+
+        if (!sPrueflos || !sWerks || !sMatnr) {
+          MessageToast.show("Lot Number, Plant, or Material data is missing.");
+          return;
+        }
+
+        this._showQcCharacteristicsDialog(sPrueflos, sWerks, sMatnr, oLotData);
+      },
+
+      _showQcCharacteristicsDialog: function (
+        sPrueflos,
+        sWerks,
+        sMatnr,
+        oLotData,
+      ) {
+        var that = this;
+        var oModel = this.getOwnerComponent().getModel();
+        var oReconModel = this.getView().getModel("recon");
+
+        // Set busy state
+        oReconModel.setProperty("/qcCharBusy", true);
+        oReconModel.setProperty("/qcCharacteristics", []);
+
+        // Destroy previous dialog if it exists
+        var oExistingDialog = this.getView().byId("qcCharDialog");
+        if (oExistingDialog) {
+          oExistingDialog.destroy();
+        }
+
+        Fragment.load({
+          id: this.getView().getId(),
+          name: "supplieropenitems.view.fragment.QcCharacteristicsDialog",
+          controller: this,
+        }).then(function (oDialog) {
+          that.getView().addDependent(oDialog);
+
+          // Update title with lot number
+          var oTitle = oDialog.getContent()[0].getItems()[0].getItems()[0];
+          oTitle.setText("QC Characteristics - Lot: " + sPrueflos);
+
+          oDialog.open();
+
+          // Fetch QC Characteristics
+          var aFilters = [
+            new Filter("Zplant", FilterOperator.EQ, sWerks),
+            new Filter("Zmatnr", FilterOperator.EQ, sMatnr),
+            new Filter("Zinsplot", FilterOperator.EQ, sPrueflos),
+          ];
+
+          oModel.read("/QcCharacteristicsSet", {
+            filters: aFilters,
+            success: function (oData) {
+              var aResults = oData.results || [];
+              // Filter out empty results (where Zresult is empty)
+              var aFiltered = aResults.filter(function (oItem) {
+                return oItem.Zresult && oItem.Zresult.trim() !== "";
+              });
+
+              if (aFiltered.length === 0) {
+                MessageToast.show(
+                  "No data found for this lot number (" + sPrueflos + ") for this condition.",
+                );
+              }
+
+              oReconModel.setProperty("/qcCharacteristics", aFiltered);
+              oReconModel.setProperty("/qcCharBusy", false);
+            },
+            error: function (oError) {
+              console.error("Error loading QC Characteristics:", oError);
+              MessageToast.show(
+                "No data found for this lot number (" + sPrueflos + ") for this condition.",
+              );
+              oReconModel.setProperty("/qcCharBusy", false);
+              oDialog.close();
+            },
+          });
+        });
+      },
+
+      onQcCharDialogClose: function () {
+        var oDialog = this.getView().byId("qcCharDialog");
+        if (oDialog) {
+          if (oDialog.isOpen()) {
+            oDialog.close();
+          }
+          // Remove from dependents before destroying
+          this.getView().removeDependent(oDialog);
+          oDialog.destroy();
+        }
+      },
+
+      onSobMaterialFilterPress: function () {
+        if (!this._oSobMatF4Dialog) {
+          Fragment.load({
+            id: this.getView().getId(),
+            name: "supplieropenitems.view.fragment.MaterialF4Dialog",
+            controller: this,
+          }).then(function (oDialog) {
+            this._oSobMatF4Dialog = oDialog;
+            this.getView().addDependent(this._oSobMatF4Dialog);
+            this._loadSobMaterialF4DataFromBackend();
+            this._oSobMatF4Dialog.open();
+          }.bind(this));
+        } else {
+          this._loadSobMaterialF4DataFromBackend();
+          this._oSobMatF4Dialog.open();
+        }
+      },
+
+      _loadSobMaterialF4DataFromBackend: function () {
+        var oModel = this.getView().getModel();
+        var oReconModel = this.getView().getModel("recon");
+
+        if (!oModel) {
+          MessageToast.show("OData model not available");
+          return;
+        }
+
+        var sLifnr = this._sLifnr || "";
+        var sBudatFrom = this._sKeyDate || "";
+        var sBudatTo = this._sKeyDateTo || "";
+
+        oReconModel.setProperty("/matF4Busy", true);
+        oReconModel.setProperty("/matF4Items", []);
+        this._aAllMaterialsF4 = [];
+
+        var aFilters = [];
+        if (sLifnr) {
+          aFilters.push(new Filter("Lifnr", FilterOperator.EQ, sLifnr));
+        }
+        if (sBudatFrom) {
+          aFilters.push(new Filter("BudatFrom", FilterOperator.EQ, new Date(sBudatFrom)));
+        }
+        if (sBudatTo) {
+          aFilters.push(new Filter("BudatTo", FilterOperator.EQ, new Date(sBudatTo)));
+        }
+
+        oModel.read("/MatF4TotShareSet", {
+          filters: aFilters,
+          success: function (oData) {
+            if (oData && oData.results) {
+              var oMatnrMap = {};
+              var aItems = [];
+
+              oData.results.forEach(function (item) {
+                if (!oMatnrMap[item.Matnr]) {
+                  oMatnrMap[item.Matnr] = true;
+                  aItems.push({
+                    Matnr: item.Matnr || "",
+                    Maktx: item.Maktx || "",
+                    Lifnr: item.Lifnr || ""
+                  });
+                }
+              });
+
+              oReconModel.setProperty("/matF4Items", aItems);
+              this._aAllMaterialsF4 = aItems;
+            }
+            oReconModel.setProperty("/matF4Busy", false);
+          }.bind(this),
+          error: function (oError) {
+            MessageToast.show("Error loading materials: " + (oError.message || "Unknown error"));
+            oReconModel.setProperty("/matF4Busy", false);
+          }.bind(this)
+        });
+      },
+
+      onSobMaterialF4Search: function (oEvent) {
+        var sSearchValue = oEvent.getSource().getValue().toLowerCase();
+        var oReconModel = this.getView().getModel("recon");
+
+        var aFilteredItems = this._aAllMaterialsF4.filter(function (item) {
+          return (
+            (item.Matnr || "").toLowerCase().includes(sSearchValue) ||
+            (item.Maktx || "").toLowerCase().includes(sSearchValue)
+          );
+        });
+
+        oReconModel.setProperty("/matF4Items", aFilteredItems);
+      },
+
+      onSobMaterialF4RowSelect: function () {
+        // Row selection handled in confirm button
+      },
+
+      onSobMaterialF4Confirm: function () {
+        var oTable = this.getView().byId("sobMaterialF4Table");
+        var aSelectedIndices = oTable.getSelectedIndices();
+
+        if (aSelectedIndices.length === 0) {
+          MessageToast.show("Please select at least one material");
+          return;
+        }
+
+        var oReconModel = this.getView().getModel("recon");
+        var aItems = oReconModel.getProperty("/matF4Items");
+        var aSelectedMaterials = [];
+        var aSelectedMatnrs = [];
+
+        aSelectedIndices.forEach(function (iIndex) {
+          var oItem = aItems[iIndex];
+          if (oItem) {
+            aSelectedMaterials.push(oItem.Matnr);
+            aSelectedMatnrs.push(oItem.Matnr);
+          }
+        });
+
+        oReconModel.setProperty("/sobSelectedMaterials", aSelectedMaterials);
+
+        // Load filtered data from API for selected materials
+        this._loadTotalShareBusinessBreakdownFiltered(aSelectedMatnrs);
+
+        var sMatnrList = aSelectedMaterials.join(", ");
+        MessageToast.show("Loading data for material(s): " + sMatnrList);
+        this.onSobMaterialF4CancelDialog();
+      },
+
+      onSobMaterialF4CancelDialog: function () {
+        if (this._oShareOfBusinessMatF4Dialog) {
+          this._oShareOfBusinessMatF4Dialog.close();
+        }
+        if (this._oSobMatF4Dialog) {
+          this._oSobMatF4Dialog.close();
+        }
+      },
+
+      onMaterialF4Cancel: function () {
+        this.onSobMaterialF4CancelDialog();
+      },
+
+      onShareOfBusinessMaterialFilterPress: function () {
+        if (!this._oShareOfBusinessMatF4Dialog) {
+          Fragment.load({
+            id: this.getView().getId(),
+            name: "supplieropenitems.view.fragment.MaterialF4Dialog",
+            controller: this,
+          }).then(function (oDialog) {
+            this._oShareOfBusinessMatF4Dialog = oDialog;
+            this.getView().addDependent(this._oShareOfBusinessMatF4Dialog);
+            this._loadShareOfBusinessMaterialF4Data();
+            this._oShareOfBusinessMatF4Dialog.open();
+          }.bind(this));
+        } else {
+          this._loadShareOfBusinessMaterialF4Data();
+          this._oShareOfBusinessMatF4Dialog.open();
+        }
+      },
+
+      _loadShareOfBusinessMaterialF4Data: function () {
+        var oModel = this.getView().getModel();
+        var oReconModel = this.getView().getModel("recon");
+
+        if (!oModel) {
+          MessageToast.show("OData model not available");
+          return;
+        }
+
+        var sLifnr = this._sLifnr || "";
+        var sBudatFrom = this._sKeyDate || "";
+        var sBudatTo = this._sKeyDateTo || "";
+
+        oReconModel.setProperty("/matF4Busy", true);
+        oReconModel.setProperty("/matF4Items", []);
+        this._aShareOfBusinessMaterialsF4 = [];
+
+        var aFilters = [];
+        if (sLifnr) {
+          aFilters.push(new Filter("Lifnr", FilterOperator.EQ, sLifnr));
+        }
+        if (sBudatFrom) {
+          aFilters.push(new Filter("BudatFrom", FilterOperator.EQ, new Date(sBudatFrom)));
+        }
+        if (sBudatTo) {
+          aFilters.push(new Filter("BudatTo", FilterOperator.EQ, new Date(sBudatTo)));
+        }
+
+        var that = this;
+
+        oModel.read("/MatF4TotShareSet", {
+          filters: aFilters,
+          success: function (oData) {
+            if (oData && oData.results) {
+              var oMatnrMap = {};
+              var aItems = [];
+
+              oData.results.forEach(function (item) {
+                if (!oMatnrMap[item.Matnr]) {
+                  oMatnrMap[item.Matnr] = true;
+                  aItems.push({
+                    Matnr: item.Matnr || "",
+                    Maktx: item.Maktx || "",
+                    Lifnr: item.Lifnr || ""
+                  });
+                }
+              });
+
+              oReconModel.setProperty("/matF4Items", aItems);
+              that._aShareOfBusinessMaterialsF4 = aItems;
+
+              // Select rows for already-selected materials
+              setTimeout(function () {
+                that._preselectMaterialsInDialog(aItems);
+              }, 100);
+            }
+            oReconModel.setProperty("/matF4Busy", false);
+          },
+          error: function (oError) {
+            MessageToast.show("Error loading materials: " + (oError.message || "Unknown error"));
+            oReconModel.setProperty("/matF4Busy", false);
+          }
+        });
+      },
+
+      _preselectMaterialsInDialog: function (aItems) {
+        var oTable = this.getView().byId("sobMaterialF4Table");
+        if (!oTable) {
+          return;
+        }
+
+        var oReconModel = this.getView().getModel("recon");
+        var aSelectedMaterials = oReconModel.getProperty("/sobSelectedMaterials") || [];
+
+        // Clear previous selections
+        oTable.clearSelection();
+
+        // Select rows that match already-selected materials
+        if (aSelectedMaterials && aSelectedMaterials.length > 0) {
+          aItems.forEach(function (item, index) {
+            if (aSelectedMaterials.indexOf(item.Matnr) >= 0) {
+              oTable.addSelectionInterval(index, index);
+            }
+          });
+        }
+      },
+
     });
   },
 );

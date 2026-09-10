@@ -63,6 +63,7 @@ sap.ui.define(
         this.byId("inputKeyDateTo").setValue(sToDate || sFromDate);
 
         this._sBukrs = sBukrs;
+        this._sLifnr = sLifnr;
         this._sKeyDate = sFromDate;
         this._sKeyDateTo = sToDate || null;
         this._sSelectedAkont = null;

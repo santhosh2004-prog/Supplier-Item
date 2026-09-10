@@ -66,11 +66,11 @@
                         id="detailContentWrapper"
                         class="contentWrapperFixed"
                     >
-                        <BusyIndicator
+                        <!-- <BusyIndicator
                             visible="{recon>/busy}"
                             size="2rem"
                             class="sapUiLargeMarginTop"
-                        />
+                        /> -->
 
                         <VBox
                             id="masterDetailCard"
@@ -91,12 +91,17 @@
                                     visible="{recon>/mdLeftPanelOpen}"
                                     class="mdSidebarPanel"
                                 >
+                                    <!-- <BusyIndicator
+                                        visible="{recon>/sidebarBusy}"
+                                        size="1.5rem"
+                                        class="mdSidebarBusyIndicator"
+                                    /> -->
                                     <HBox
                                         justifyContent="SpaceBetween"
                                         alignItems="Center"
                                         class="mdSidebarHeaderRow sapUiSizeCompact"
                                     >
-                                        
+
                                     </HBox>
                                     <List
                                         showSeparators="None"
@@ -142,9 +147,16 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{ path: 'recon>/openingBalanceValue', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                 <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
+
                                             </HBox>
                                         </CustomListItem>
 
@@ -168,13 +180,20 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{ path: 'recon>/transactionsTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                          <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
+
                                             </HBox>
                                         </CustomListItem>
 
-                                        <CustomListItem
+                                        <!-- <CustomListItem
                                             type="Active"
                                             press=".onAdvanceBalancePress"
                                             class="mdSidebarRowLI"
@@ -198,7 +217,7 @@
                                                     class="mdSidebarRowValue"
                                                 />
                                             </HBox>
-                                        </CustomListItem>
+                                        </CustomListItem> -->
 
                                         <CustomListItem
                                             type="Active"
@@ -215,14 +234,21 @@
                                                     class="mdSidebarRowLeft"
                                                 >
                                                     <Text
+                                                    
                                                         text="Debit Notes"
                                                         class="mdSidebarRowLabel"
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{ path: 'recon>/debitNotesTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -247,6 +273,7 @@
                                                         text="Credit Notes"
                                                         class="mdSidebarRowLabel"
                                                     />
+                                                    
                                                 </HBox>
                                             </HBox>
                                         </CustomListItem>
@@ -271,9 +298,15 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{ path: 'recon>/paymentsTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
 
                                         </CustomListItem>
@@ -292,14 +325,20 @@
                                                     class="mdSidebarRowLeft"
                                                 >
                                                     <Text
-                                                        text="Pending Invoices"
+                                                        text="Invoices"
                                                         class="mdSidebarRowLabel"
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{ path: 'recon>/pendingInvoicesTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -337,9 +376,15 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                      text="{ path: 'recon>/totalPOTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -362,9 +407,15 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{ path: 'recon>/pendingPOTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -387,9 +438,15 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{ path: 'recon>/matReceiptsTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -412,9 +469,15 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{= ${recon>/vendorReturnsCount} + ' items' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -439,9 +502,16 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
+                                                
                                                     text="{ path: 'recon>/shareOfBusinessQtyPercent', formatter: '.formatShareOfBusinessSidebarValue' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -477,9 +547,15 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{= ${recon>/lotsReceivedCount} + ' lots' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -504,7 +580,13 @@
                                                 <Text
                                                     text="{= ${recon>/lotsAcceptedCount} + ' lots' }"
                                                     class="mdSidebarRowValue "
+                                                    visible="{= !${recon>/sidebarBusy} }"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
                                         <CustomListItem type="Active" press=".onAcceptedQtyPress" class="mdSidebarRowLI">
@@ -526,9 +608,15 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{= ${recon>/acceptedQtyCount} + ' lots' }"
                                                     class="mdSidebarRowLabel mdSidebarRowLabelGreen"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
@@ -551,36 +639,57 @@
                                                     />
                                                 </HBox>
                                                 <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
                                                     text="{= ${recon>/rejectedQtyCount} + ' lots' }"
                                                     class="mdSidebarRowLabel mdSidebarRowLabelRed"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
                                         </CustomListItem>
 
-                                        <CustomListItem type="Active" press=".onAudQtyPress" class="mdSidebarRowLI">
-                                            <customData>
-                                                <core:CustomData key="moduleLabel" value="AUD qty" />
-                                            </customData>
-                                            <HBox
-                                                justifyContent="SpaceBetween"
-                                                alignItems="Center"
-                                                class="mdSidebarRowInner"
-                                            >
-                                                <HBox
-                                                    alignItems="Center"
-                                                    class="mdSidebarRowLeft"
-                                                >
-                                                    <Text
-                                                        text="AUD Qty"
-                                                        class="mdSidebarRowLabel mdSidebarRowLabelBlue"
-                                                    />
-                                                </HBox>
-                                                <Text
-                                                    text="{= ${recon>/audQtyCount} + ' lots' }"
-                                                    class="mdSidebarRowLabel mdSidebarRowLabelBlue"
-                                                />
-                                            </HBox>
-                                        </CustomListItem>
+                                       <CustomListItem
+    type="Active"
+    press=".onAudQtyPress"
+    class="mdSidebarRowLI"
+>
+    <customData>
+        <core:CustomData key="moduleLabel" value="AUD qty" />
+    </customData>
+
+    <HBox
+        justifyContent="SpaceBetween"
+        alignItems="Center"
+        class="mdSidebarRowInner"
+    >
+        <HBox
+            alignItems="Center"
+            class="mdSidebarRowLeft"
+        >
+            <Text
+                text="AUD Qty"
+                class="mdSidebarRowLabel mdSidebarRowLabelBlue"
+            />
+        </HBox>
+
+        <!-- Show "lots" text only when busy = false -->
+        <Text
+           visible="{= !${recon>/sidebarBusy} }"
+            text="{= ${recon>/audQtyCount} + ' lots' }"
+            class="mdSidebarRowLabel mdSidebarRowLabelBlue"
+        />
+
+                                              <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
+
+    </HBox>
+</CustomListItem>
                                     </List>
                                 </VBox>
 

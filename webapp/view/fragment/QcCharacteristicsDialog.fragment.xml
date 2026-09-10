@@ -1,0 +1,125 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core" xmlns:table="sap.ui.table">
+    <Dialog
+        id="qcCharDialog"
+        title="QC Characteristics"
+        contentWidth="90%"
+        contentHeight="80%"
+        resizable="true"
+        draggable="true"
+    >
+        <content>
+            <VBox class="sapUiContentPadding">
+                <!-- Title Row -->
+                <HBox class="sapUiSmallMarginBottom">
+                    <Title
+                        id="qcCharTitle"
+                        text="QC Characteristics - Lot: "
+                        level="H2"
+                    />
+                </HBox>
+
+                <!-- QC Characteristics Table -->
+                <table:Table
+                    id="qcCharTable"
+                    width="100%"
+                    rowHeight="32"
+                    columnHeaderHeight="30"
+                    rows="{recon>/qcCharacteristics}"
+                    busy="{recon>/qcCharBusy}"
+                    busyIndicatorDelay="0"
+                    visibleRowCountMode="Auto"
+                    minAutoRowCount="10"
+                    noData="No QC characteristics found."
+                    selectionMode="None"
+                    class="qcCharacteristicsTable"
+                >
+                    <table:columns>
+                        <table:Column width="12%" sortProperty="Zactivity" filterProperty="Zactivity">
+                            <table:label>
+                                <Label text="Activity" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text text="{recon>Zactivity}" wrapping="false" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="18%" sortProperty="Zstchar" filterProperty="Zstchar">
+                            <table:label>
+                                <Label text="Description" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text text="{recon>Zstchar}" wrapping="true" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="12%" sortProperty="Zspecification" filterProperty="Zspecification">
+                            <table:label>
+                                <Label text="Specification" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text text="{recon>Zspecification}" wrapping="false" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="12%" sortProperty="Zinfo" filterProperty="Zinfo">
+                            <table:label>
+                                <Label text="Info Field" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text text="{recon>Zinfo}" wrapping="false" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="12%" sortProperty="Zresult" filterProperty="Zresult">
+                            <table:label>
+                                <Label text="Results" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text text="{recon>Zresult}" wrapping="false" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="14%" sortProperty="Zdclass" filterProperty="Zdclass">
+                            <table:label>
+                                <Label text="Defect Class" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text text="{recon>Zdclass}" wrapping="true" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="12%" sortProperty="Zaddinfo" filterProperty="Zaddinfo">
+                            <table:label>
+                                <Label text="Additional Info" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text text="{recon>Zaddinfo}" wrapping="true" />
+                            </table:template>
+                        </table:Column>
+
+                        <table:Column width="10%" sortProperty="Zvaluation" filterProperty="Zvaluation">
+                            <table:label>
+                                <Label text="Valuation" design="Bold" />
+                            </table:label>
+                            <table:template>
+                                <Text
+                                    text="{recon>Zvaluation}"
+                                    wrapping="false"
+                                    class="{= ${recon>Zvaluation} === 'Accepted' ? 'acceptedValuation' : ${recon>Zvaluation} === 'Rejected' ? 'rejectedValuation' : 'neutralValuation' }"
+                                />
+                            </table:template>
+                        </table:Column>
+                    </table:columns>
+                </table:Table>
+            </VBox>
+        </content>
+
+        <buttons>
+            <Button
+                text="Close"
+                type="Emphasized"
+                press=".onQcCharDialogClose"
+            />
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

@@ -181,7 +181,7 @@
             selectionMode="None"
             enableColumnReordering="false"
             visibleRowCountMode="Auto"
-            minAutoRowCount="14"
+            minAutoRowCount="13"
             noData="No pending invoices found."
             class="mdLineItemsTable mdGridTable"
         >

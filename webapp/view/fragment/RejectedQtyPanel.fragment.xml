@@ -171,10 +171,10 @@
                         <Label text="Lot Number" design="Bold" />
                     </table:label>
                     <table:template>
-                        <Text text="{recon>Prueflos}" />
+                        <Link text="{recon>Prueflos}" press=".onLotsReceivedLotNumberPress" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol1" />
+                        <core:CustomData key="colId" value="col1" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="10%" sortProperty="Werks" filterProperty="Werks">
@@ -185,7 +185,7 @@
                         <Text text="{recon>Werks}" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol2" />
+                        <core:CustomData key="colId" value="col2" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="14%" sortProperty="Enstehdat" filterProperty="Enstehdat">
@@ -196,7 +196,7 @@
                         <Text text="{ path: 'recon>Enstehdat', formatter: '.formatOpenItemDate' }" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol3" />
+                        <core:CustomData key="colId" value="col3" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="16%" sortProperty="Matnr" filterProperty="Matnr">
@@ -207,7 +207,7 @@
                         <Text text="{recon>Matnr}" wrapping="false" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol4" />
+                        <core:CustomData key="colId" value="col4" />
                     </table:customData>
                 </table:Column>
                 <table:Column width="14%" sortProperty="Charg" filterProperty="Charg">
@@ -218,7 +218,7 @@
                         <Text text="{recon>Charg}" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol5" />
+                        <core:CustomData key="colId" value="col6" />
                     </table:customData>
                 </table:Column>
                 <table:Column
@@ -231,10 +231,10 @@
                         <Label text="Reject Code" design="Bold" />
                     </table:label>
                     <table:template>
-                        <Text text="{recon>Vcode}" />
+                        <Text text="{recon>Vcode}" textAlign="End" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol6" />
+                        <core:CustomData key="colId" value="col7" />
                     </table:customData>
                 </table:Column>
                 <table:Column
@@ -250,7 +250,7 @@
                         <ObjectNumber number="{ path: 'recon>Losmenge', formatter: '.formatAmount' }" />
                     </table:template>
                     <table:customData>
-                        <core:CustomData key="colId" value="oiCol7" />
+                        <core:CustomData key="colId" value="col8" />
                     </table:customData>
                 </table:Column>
             </table:columns>

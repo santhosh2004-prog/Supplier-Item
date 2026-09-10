@@ -328,17 +328,24 @@
                                                 <Text text="{recon>Name1}" />
                                             </table:template>
                                         </table:Column>
-                                        <table:Column width="14%" hAlign="End" sortProperty="InvAmt" filterProperty="InvAmt">
-                                            <table:label>
-                                                <Label text="Invoice Amt" design="Bold" />
-                                            </table:label>
-                                            <table:template>
-                                                <ObjectNumber number="{ path: 'recon>InvAmt', formatter: '.formatAmount' }" />
-                                            </table:template>
-                                        </table:Column>
+                                      
+<table:Column width="14%" hAlign="End" sortProperty="InvAmt" filterProperty="InvAmt">
+    <table:label>
+        <Label text="Closing Bal. Amt" design="Bold" />
+    </table:label>
+    <table:template>
+        <ObjectStatus
+            text="{ path: 'recon>InvAmt', formatter: '.formatAmount' }"
+            inverted="true"
+            state="{= Number(${recon>InvAmt}) >= 100 ? 'Indication04' : 'Indication02' }"
+        />
+    </table:template>
+</table:Column>  
+
+
                                         <table:Column width="14%" hAlign="End" sortProperty="AdvAmt" filterProperty="AdvAmt">
                                             <table:label>
-                                                <Label text="Advance Amt" design="Bold" />
+                                                <Label text="Net Adv. Amt" design="Bold" />
                                             </table:label>
                                             <table:template>
                                                 <ObjectNumber number="{ path: 'recon>AdvAmt', formatter: '.formatAmount' }" />

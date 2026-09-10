@@ -1513,9 +1513,26 @@
 }
 
 .mdGridTable .sapUiTableCell {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
+    font-family: inherit;
     padding-top: 0.12rem;
     padding-bottom: 0.12rem;
+}
+
+/* Content controls (Text/ObjectNumber/ObjectStatus) default to their own
+   left alignment regardless of the column's hAlign — the sap.ui.table cell
+   itself is already aligned correctly per-column (hAlign="End" etc.), so
+   make every content control inherit that instead of fighting it. Keeps
+   numeric/quantity columns lined up under their (also right-aligned)
+   header across every module table (Material Receipts, Vendor Returns,
+   Total/Pending PO, Lots Accepted/Received, Accepted/Rejected Qty, AUD
+   Qty, Share of Business, ...). */
+.mdGridTable .sapUiTableCell .sapMText,
+.mdGridTable .sapUiTableCell .sapMObjectNumberText,
+.mdGridTable .sapUiTableCell .sapMObjectStatusText {
+    text-align: inherit;
+    font-family: inherit;
+    font-size: inherit;
 }
 
 .mdGridTable .sapUiTableRowHdr,
