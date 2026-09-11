@@ -123,10 +123,10 @@
             class="mdRightHeaderRow"
             visible="{= ${recon>/pendingPOBusy} || ${recon>/pendingPOItems}.length > 0 }"
         >
-            <Text
+            <!-- <Text
                 text="{= 'Pending PO (' + ${recon>/pendingPOItems}.length + ' records)' }"
                 class="panelSubTitle mdLineItemsTitle mdNoMargin"
-            />
+            /> -->
             <HBox class="mdExportBtns mdLineItemsToolBtns">
                 <Button
                     icon="sap-icon://action-settings"

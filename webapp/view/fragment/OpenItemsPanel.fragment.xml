@@ -19,7 +19,7 @@
         <!-- ═══ Opening Balance / Open Items summary tiles ═══ -->
 
         <FlexBox
-            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} }"
+            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} &amp;&amp; !${recon>/mdShowClosingBalance} }"
             class="mdStatTilesRow mdPanelAnimate"
             wrap="Wrap"
         >
@@ -151,7 +151,7 @@
         <!-- ═══ Chart + Line Items ═══ -->
 
         <VBox
-            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} }"
+            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} &amp;&amp; !${recon>/mdShowClosingBalance} }"
             class="mdChartAndLineItemsStack"
         >
 
@@ -221,7 +221,7 @@
                         selectionMode="None"
                         enableColumnReordering="false"
                         visibleRowCountMode="Auto"
-                        minAutoRowCount="9"
+                        minAutoRowCount="8"
                         noData="No line items found."
                         class="mdLineItemsTable mdGridTable"
                     >
@@ -316,14 +316,14 @@
                                 <table:label>
                                     <Label
                                         text="Amount"
-                                        design="Bold"
+                                        
                                     />
                                 </table:label>
 
                                 <table:template>
-                                    <ObjectNumber
-                                        number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }"
-                                    />
+                                   <Text
+    text="{ path: 'recon>NetAmt', formatter: '.formatAmount' }"
+/>
                                 </table:template>
 
                                 <table:customData>

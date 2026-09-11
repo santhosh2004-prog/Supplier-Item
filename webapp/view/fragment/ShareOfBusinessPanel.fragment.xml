@@ -365,7 +365,7 @@
             <table:Table
                 id="shareLifnrTable"
                 width="100%"
-                rowHeight="18"
+                rowHeight="26"
                 columnHeaderHeight="20"
                 rows="{recon>/shareLifnrItems}"
                 busy="{recon>/shareLifnrBusy}"
@@ -374,7 +374,7 @@
                 selectionMode="None"
                 enableColumnReordering="false"
                 visibleRowCountMode="Auto"
-                minAutoRowCount="12"
+                minAutoRowCount="13"
                 noData="No breakdown data found."
                 class="mdLineItemsTable mdGridTable mdSobBreakdownTable"
             >
@@ -484,7 +484,7 @@
                         </table:label>
 
                         <table:template>
-                            <Text text="{= ${recon>Menge} + ' ' + ${recon>Meins} }" textAlign="End" />
+                            <Text text="{= (Math.floor(Number(${recon>Menge}) * 100) / 100).toFixed(2) + ' ' + ${recon>Meins} }" textAlign="End" />
                         </table:template>
                     </table:Column>
 
@@ -505,7 +505,7 @@
 
                         <table:template>
                             <Text
-                                text="{= ${recon>Netpr} }"
+                                text="{= (Math.floor(Number(${recon>Netpr}) * 100) / 100).toFixed(2) }"
                             />
                         </table:template>
 
@@ -526,7 +526,7 @@
 
                     <table:template>
                             <Text
-                                text="{= ${recon>Netwr} }"
+                                text="{= (Math.floor(Number(${recon>Netwr}) * 100) / 100).toFixed(2) }"
                             />
                         </table:template>
 
@@ -566,7 +566,7 @@
             <table:Table
                 id="totalShareBusinessTable"
                 width="100%"
-                rowHeight="18"
+                rowHeight="22"
                 columnHeaderHeight="20"
                 rows="{recon>/totalShareBusinessItems}"
                 busy="{recon>/totalShareBusinessBusy}"
@@ -575,7 +575,7 @@
                 selectionMode="None"
                 enableColumnReordering="false"
                 visibleRowCountMode="Auto"
-                minAutoRowCount="16"
+                minAutoRowCount="9"
                 noData="No Total Qty breakdown data found."
                 class="mdLineItemsTable mdGridTable mdSobBreakdownTable"
             >
@@ -621,7 +621,14 @@
                             <Text text="{= (Math.floor(Number(${recon>Menge}) * 100) / 100).toFixed(2) }" textAlign="End" />
                         </table:template>
                     </table:Column>
-
+  <table:Column width="10%" hAlign="End" sortProperty="SobLMenge" filterProperty="SobLMenge">
+                        <table:label>
+                            <Label text="Quan. Share " design="Bold" />
+                        </table:label>
+                        <table:template>
+                            <Text text="% {= (Math.floor(Number(${recon>SobLMenge}) * 100) / 100).toFixed(2) }" textAlign="End" />
+                        </table:template>
+                    </table:Column>
                     <!-- Share of Qty -->
                     <table:Column width="12%" hAlign="End" sortProperty="SobMenge" filterProperty="SobMenge">
                         <table:label>
@@ -675,23 +682,16 @@
 
                     <!-- Sob L Qty — TotalShareBusinessSet's own field, not
                          wired to any label/formatting elsewhere yet. -->
-                    <table:Column width="10%" hAlign="End" sortProperty="SobLMenge" filterProperty="SobLMenge">
-                        <table:label>
-                            <Label text="Sob L Qty" design="Bold" />
-                        </table:label>
-                        <table:template>
-                            <Text text="{= (Math.floor(Number(${recon>SobLMenge}) * 100) / 100).toFixed(2) }" textAlign="End" />
-                        </table:template>
-                    </table:Column>
+                  
 
                     <!-- Sob L Value — TotalShareBusinessSet's own field, not
                          wired to any label/formatting elsewhere yet. -->
                     <table:Column width="10%" hAlign="End" sortProperty="SobLNetwr" filterProperty="SobLNetwr">
                         <table:label>
-                            <Label text="Sob L Value" design="Bold" />
+                            <Label text="Value. Share" design="Bold" />
                         </table:label>
                         <table:template>
-                            <Text text="{= (Math.floor(Number(${recon>SobLNetwr}) * 100) / 100).toFixed(2) }" textAlign="End" />
+                            <Text text="% {= (Math.floor(Number(${recon>SobLNetwr}) * 100) / 100).toFixed(2) }" textAlign="End" />
                         </table:template>
                     </table:Column>
 

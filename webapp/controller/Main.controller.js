@@ -480,6 +480,7 @@
         "mdShowMatReceipts",
         "mdShowVendorReturns",
         "mdShowPayments",
+        "mdShowClosingBalance",
       ],
 
       _showMdPanel: function (sActiveFlag) {
@@ -1062,8 +1063,10 @@
         // row was already open â€" e.g. a user on Payments who only changes
         // From/To Date and presses Go stays on Payments with the new date
         // range, instead of silently being dropped back to Opening balance.
-        // Opening balance itself is already covered by the OpBalAsOnSet read
-        // above, and "opening" is also the default on a fresh page load.
+        // Opening balance's OWN data is already covered by the OpBalAsOnSet
+        // read above; the "opening"/default case below still has to run,
+        // though â€" it's what actually clears every OTHER panel's mdShowX
+        // flag back to false (see that case's own comment).
         switch (this._sActiveMdPanel) {
           case "transactions":
             this.onTransactionsPress();
@@ -1073,6 +1076,9 @@
             break;
           case "debitnotes":
             this.onDebitNotesPress();
+            break;
+          case "closingbalance":
+            this.onClosingBalancePress();
             break;
           case "pendinginvoices":
             this.onPendingInvoicesPress();
@@ -1127,7 +1133,25 @@
               this._sActiveMdPanelLabel || "",
             );
             break;
-          // "opening" (or unset): nothing else to do.
+          case "opening":
+          default:
+            // Opening Balance has no mdShowX flag of its own â€" it's just
+            // whatever's left once every other panel's flag is false (see
+            // OpenItemsPanel.fragment.xml's own visibility check) â€" so
+            // landing here must actively clear every flag, not just skip
+            // setting one. Without this, a session that had visited ANY
+            // other panel (Closing Balance, Payments, ...) earlier keeps
+            // that flag stuck true forever: this switch runs on every Go /
+            // new-supplier navigation, and with no case matching "opening"
+            // nothing ever reset it back to false, so the old panel kept
+            // rendering underneath Opening Balance's own content on the
+            // NEXT supplier too (e.g. clicking a different vendor row in
+            // the Chart's table, which correctly resets _sActiveMdPanel to
+            // "opening" beforehand â€" see onVendorItemPress â€" but that
+            // alone was never enough without this case). _showMdPanel(null)
+            // is idempotent, so this is also safe to run on a genuinely
+            // fresh session where every flag was already false.
+            this._showMdPanel(null);
         }
       },
 
@@ -1246,6 +1270,30 @@
           },
           error: function () {
             oReconModel.setProperty("/debitNotesTotal", 0);
+            fnOnRequestComplete();
+          },
+        });
+
+        // Closing balance â€" same "value as on <To Date>" single-Budat
+        // pattern as Advance balance/Pending invoices (not a BudatFrom/
+        // BudatTo range like Debit notes/Total PO), same signed-Dmbtr
+        // convention as onClosingBalancePress's own ClosingBalanceSet read.
+        iRequestCount++;
+        oModel.read("/ClosingBalanceSet", {
+          filters: [
+            new Filter("Bukrs", FilterOperator.EQ, sBukrs),
+            new Filter("Lifnr", FilterOperator.EQ, sLifnrPadded),
+            new Filter("Budat", FilterOperator.EQ, new Date(sToDate)),
+          ],
+          success: function (oData) {
+            oReconModel.setProperty(
+              "/closingBalanceTotal",
+              sumSigned(oData.results),
+            );
+            fnOnRequestComplete();
+          },
+          error: function () {
+            oReconModel.setProperty("/closingBalanceTotal", 0);
             fnOnRequestComplete();
           },
         });
@@ -1992,6 +2040,7 @@
         "debitNotesTable",
         "paymentsTable",
         "pendingInvoicesTable",
+        "closingBalanceTable",
       ],
 
       // Every other master-detail table (MATERIALS (MM) / QUALITY (QM)
@@ -2027,43 +2076,9 @@
         return this.TABLE_CATEGORY[sTableId] || "FI";
       },
 
-      /**
-       * Column id -> {label, field, width, hAlign, cell} for every MM/QM
-       * table, mirroring exactly what's hand-authored in each table's own
-       * fragment XML (TotalPOPanel, PendingPOPanel, MatReceiptPanel,
-       * VendorReturnsPanel, LotsReceivedPanel, LotsAcceptedPanel,
-       * RejectedQtyPanel, AcceptedQtyPanel, AudQtyPanel) â€" so Column
-       * Settings/Select Layout on these tables picks from/rebuilds their
-       * actual columns instead of the FI list. `cell` takes the controller
-       * instance (for bound formatters) and returns a fresh cell template.
-       */
-      // Column ids below use one shared "col1".."col28" numbering across
-      // totalPOTable/pendingPOTable/matReceiptsTable/vendorReturnsTable:
-      // col1=Ebeln, col2=Ebelp, col3=Bukrs, col4=Lifnr, col5=Matnr,
-      // col6=Menge are common to all four tables; col7=Bedat, col8=Txz01,
-      // col9=Netpr, col10=Bsart, col11=Name1, col12=Peinh, col13=Waers are
-      // shared between the two PO tables; col14=Mblnr, col15=date (
-      // Budat_mkpf/BudatMkpf), col16=Werks, col17=Bwart, col18=Zeile,
-      // col19=Gjahr, col20=Lgort are shared between the two goods-movement
-      // tables; col21=Netwr, col22=Bstyp (totalPOTable only), col23=PendQty,
-      // col24=PendVal, col25=EketMenge, col26=Wemng (pendingPOTable only)
-      // and col27=Dmbtr (matReceiptsTable only) exist on just one table.
-      // col28=Maktx (material description, distinct from Txz01's own PO-
-      // line-text field) is common to ALL FOUR tables, same id everywhere.
-      // Same field -> same id everywhere it appears, so a saved Layout's
-      // Columns id list (shared per "MM" category, see TABLE_CATEGORY)
-      // resolves to the same field on every table that defines it, instead
-      // of colliding with an unrelated field. These ids are ALREADY in
-      // LayoutSet's on-the-wire "col<N>" shape (unlike FI's controller-
-      // internal "oiCol<N>"), so oiColIdToBackend/backendColIdToOi pass
-      // them through unchanged instead of running the FI-only transform.
+
       MM_QM_COLUMN_DEFS: {
-        // Every field TotalPOSet's response actually returns (Ebeln, Ebelp,
-        // Bukrs, Lifnr, Name1, Bedat, Bstyp, Bsart, Matnr, Txz01, Maktx,
-        // Menge, Meins, Netpr, Peinh, Netwr, Waers â€" BudatFrom/BudatTo are
-        // just the filter echoed back, not real data, so they're left out)
-        // gets its own selectable column here, not just the 6 shown by
-        // default.
+       
         totalPOTable: [
           { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
           { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
@@ -2110,65 +2125,236 @@
         // Gjahr, Lifnr, Ebeln, Ebelp, Bwart, Matnr, Maktx, Lgort, Menge,
         // Meins, Budat_mkpf, Dmbtr) gets its own selectable column here, not
         // just the 7 shown by default.
-        matReceiptsTable: [
-          { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
-          { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
-          { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
-          { id: "col5", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
-          { id: "col10", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
-          { id: "col22", label: "Document Category", field: "Bstyp", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Bstyp}" }); } },
-          { id: "col3", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
-          { id: "col4", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "col11", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
-          { id: "col12", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
-          { id: "col13", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
-          { id: "col28", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
-        ],
+       matReceiptsTable: [
+
+    {
+        id: "col1",
+        label: "PO Number",
+        field: "Ebeln",
+        width: "8rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Ebeln}"
+            });
+        }
+    },
+
+    {
+        id: "col7",
+        label: "Date",
+        field: "Budat_mkpf",
+        width: "7rem",
+        cell: function (that) {
+            return new sap.m.Text({
+                text: {
+                    path: "recon>Budat_mkpf",
+                    formatter: that.formatOpenItemDate.bind(that)
+                }
+            });
+        }
+    },
+
+    {
+        id: "col6",
+        label: "Quantity",
+        field: "Menge",
+        width: "8rem",
+        hAlign: "End",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }"
+            });
+        }
+    },
+
+    {
+        id: "col21",
+        label: "Net Value",
+        field: "Dmbtr",
+        width: "8rem",
+        hAlign: "End",
+        cell: function (that) {
+            return new sap.m.Text({
+                text: {
+                    path: "recon>Dmbtr",
+                    formatter: that.formatAmount.bind(that)
+                }
+            });
+        }
+    },
+
+    {
+        id: "col2",
+        label: "PO Item",
+        field: "Ebelp",
+        width: "6rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Ebelp}"
+            });
+        }
+    },
+
+    {
+        id: "col5",
+        label: "Material Number",
+        field: "Matnr",
+        width: "8rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Matnr}"
+            });
+        }
+    },
+
+    {
+        id: "col3",
+        label: "Company Code",
+        field: "Bukrs",
+        width: "6rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Bukrs}"
+            });
+        }
+    },
+
+    {
+        id: "col4",
+        label: "Supplier",
+        field: "Lifnr",
+        width: "7rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Lifnr}"
+            });
+        }
+    },
+
+    {
+        id: "col28",
+        label: "Material Description",
+        field: "Maktx",
+        width: "10rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Maktx}",
+                wrapping: false
+            });
+        }
+    }
+
+],
         // Every field VendorReturnsSet's response actually returns, per the
         // aItems map in onVendorReturnsPress (Mblnr, Zeile, Werks, Bukrs,
         // Gjahr, Lifnr, Ebeln, Ebelp, Bwart, Matnr, Maktx, Lgort, Menge,
         // Meins, BudatMkpf) gets its own selectable column here, not just
         // the 7 shown by default.
-        vendorReturnsTable:[
-          { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
-          { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
-          { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
-          { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
-          { id: "col5", label: "Material Number", field: "Matnr", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Matnr}" }); } },
-          { id: "col10", label: "PO Type", field: "Bsart", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bsart}" }); } },
-          { id: "col22", label: "Document Category", field: "Bstyp", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Bstyp}" }); } },
-          { id: "col3", label: "Company Code", field: "Bukrs", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Bukrs}" }); } },
-          { id: "col4", label: "Supplier", field: "Lifnr", width: "7rem", cell: function () { return new sap.m.Text({ text: "{recon>Lifnr}" }); } },
-          { id: "col11", label: "Supplier Name", field: "Name1", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Name1}", wrapping: false }); } },
-          { id: "col12", label: "Price Unit", field: "Peinh", width: "6rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{recon>Peinh}" }); } },
-          { id: "col13", label: "Currency", field: "Waers", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Waers}" }); } },
-          { id: "col28", label: "Material Description", field: "Maktx", width: "10rem", cell: function () { return new sap.m.Text({ text: "{recon>Maktx}", wrapping: false }); } },
-        ],
-        // Every field LotRecSet's response actually returns (Prueflos,
-        // Werks, Art, Objnr, Obtyp, Stat01, Enstehdat, Matnr, Maktx, Lifnr,
-        // Kzart, Vcode, Qkennzahl, Aufnr, Charg, Losmenge â€" FromDate/ToDate
-        // are just the filter echoed back, not real data, so they're left
-        // out) gets its own selectable column here, not just the 7 shown by
-        // default.
-        //
-        // All five QM tables below (lotsReceivedTable, lotsAcceptedTable,
-        // rejectedQtyTable, acceptedQtyTable, audQtyTable) now offer the
-        // FULL LotRecSet field set, using one shared "col1".."col17"
-        // numbering: col1=Prueflos, col2=Werks, col3=Enstehdat, col4=Matnr,
-        // col5=Maktx, col6=Charg, col7=Vcode, col8=Losmenge, col9=Art,
-        // col10=Lifnr, col11=Qkennzahl, col12=Objnr, col13=Obtyp,
-        // col14=Stat01, col15=Kzart, col16=Aufnr, col17=Mblnr. Same field ->
-        // same id on every table that defines it (same reasoning as the MM
-        // tables' col1..col28 above) â€" fields a specific entity might not
-        // actually return (e.g. Objnr on LotAcceptSet) still get a column
-        // here so its own aItems map has somewhere to put the value if the
-        // backend ever adds it, same as Maktx was added across the MM
-        // tables.
+       vendorReturnsTable: [
+
+    {
+        id: "col1",
+        label: "PO Number",
+        field: "Ebeln",
+        width: "8rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Ebeln}"
+            });
+        }
+    },
+
+    {
+        id: "col7",
+        label: "Date",
+        field: "BudatMkpf",
+        width: "7rem",
+        cell: function (that) {
+            return new sap.m.Text({
+                text: {
+                    path: "recon>BudatMkpf",
+                    formatter: that.formatOpenItemDate.bind(that)
+                }
+            });
+        }
+    },
+
+    {
+        id: "col6",
+        label: "Quantity",
+        field: "Menge",
+        width: "8rem",
+        hAlign: "End",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }"
+            });
+        }
+    },
+
+    {
+        id: "col2",
+        label: "PO Item",
+        field: "Ebelp",
+        width: "6rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Ebelp}"
+            });
+        }
+    },
+
+    {
+        id: "col5",
+        label: "Material Number",
+        field: "Matnr",
+        width: "8rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Matnr}"
+            });
+        }
+    },
+
+    {
+        id: "col3",
+        label: "Company Code",
+        field: "Bukrs",
+        width: "6rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Bukrs}"
+            });
+        }
+    },
+
+    {
+        id: "col4",
+        label: "Supplier",
+        field: "Lifnr",
+        width: "7rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Lifnr}"
+            });
+        }
+    },
+
+    {
+        id: "col28",
+        label: "Material Description",
+        field: "Maktx",
+        width: "10rem",
+        cell: function () {
+            return new sap.m.Text({
+                text: "{recon>Maktx}",
+                wrapping: false
+            });
+        }
+    }
+
+],
+      
         lotsReceivedTable: [
           { id: "col1", label: "Lot Number", field: "Prueflos", width: "9rem", cell: function (that) { return new Link({ text: "{recon>Prueflos}", press: that.onLotsReceivedLotNumberPress.bind(that) }); } },
           { id: "col2", label: "Plant", field: "Werks", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Werks}" }); } },
@@ -2745,7 +2931,7 @@
             filterProperty: sField,
             label: new sap.m.Label({
               text: that._getOpenItemsColumnLabelById(sColId),
-              design: "Bold",
+              
             }),
             template: that._getOpenItemsCellByColumnId(sColId),
           });
@@ -3335,17 +3521,19 @@
 
       /**
        * The FI header's "From Date" field is greyed out (visible, not
-       * hidden) on Opening Balance, Advance Balance, and Pending Invoices
-       * â€" none of those three actually filter by a From Date (Opening
-       * Balance/Advance Balance key off the To Date only; Pending
-       * Invoices has no date filter at all), so leaving the field
-       * enabled there would suggest changing it does something when it
-       * doesn't. Every other master-detail panel (Transactions, Payments,
-       * Total PO, Material Receipts, ...) DOES use From Date, so it stays
-       * enabled there, same as on the initial (pre-drill-in) search
-       * screen. bAnyOtherPanel mirrors OpenItemsPanel.fragment.xml's own
-       * "is Opening Balance showing" visibility check â€" Opening Balance
-       * has no mdShowX flag of its own; it's just whatever's left once
+       * hidden) on Opening Balance, Advance Balance, Pending Invoices, and
+       * Closing Balance â€" none of those four actually filter by a From
+       * Date (Opening Balance/Advance Balance/Closing Balance key off the
+       * To Date only, via a single Budat EQ filter â€" see
+       * onClosingBalancePress; Pending Invoices has no date filter at
+       * all), so leaving the field enabled there would suggest changing it
+       * does something when it doesn't. Every other master-detail panel
+       * (Transactions, Payments, Total PO, Material Receipts, ...) DOES
+       * use From Date, so it stays enabled there, same as on the initial
+       * (pre-drill-in) search screen. bAnyOtherPanel mirrors
+       * OpenItemsPanel.fragment.xml's own "is Opening Balance showing"
+       * visibility check â€" Opening Balance has no mdShowX flag of its
+       * own; it's just whatever's left once
        * every other panel's flag is false.
        */
       isFromDateEnabled: function (
@@ -3366,9 +3554,13 @@
         bMatReceipts,
         bVendorReturns,
         bShareOfBusiness,
+        bClosingBalance,
       ) {
         if (!bMasterDetailMode) return true;
-        if (bAdvance || bPendingInvoices) return false;
+        // Closing Balance uses a single "as of" Budat (= To Date only, same
+        // as onClosingBalancePress) â€" From Date plays no part in its query,
+        // same reasoning as Advance/Pending Invoices above.
+        if (bAdvance || bPendingInvoices || bClosingBalance) return false;
 
         var bAnyOtherPanel =
           bGenericModule ||
@@ -5239,6 +5431,115 @@
       /** Back navigation out of the Debit notes panel: returns to the Line items view. */
       onBackFromDebitNotes: function () {
         this._oReconModel.setProperty("/mdShowDebitNotes", false);
+      },
+
+      /**
+       * Fired from the "Closing Balance" row in the master-detail FINANCE
+       * (FI) panel. Calls ClosingBalanceSet for the current Company Code /
+       * Supplier as of a single date (Budat, EQ â€" not a BudatFrom/BudatTo
+       * range like Debit Notes/Advance/Payments), e.g.:
+       *   ClosingBalanceSet?$filter=Bukrs eq '1000' and
+       *   Budat eq datetime'2026-09-09T00:00:00' and Lifnr eq '0001000047'
+       * ClosingBalanceSet returns one row per FI document open as of that
+       * date (Belnr/Blart/Dmbtr/Shkzg/Bukrs/Lifnr/Name1/Sgtxt/Rebzg/Waers/
+       * Bstat/Budat/Bldat/Umskz/Augdt/DoctyDesc) â€" same 15-field shape as
+       * every other FI table (Opening Balance/Transactions/Advance/Debit
+       * Notes/Payments/Pending Invoices), so it shares their Column
+       * Settings/Select Layout schema (see OI_TABLE_IDS) instead of getting
+       * its own. Dmbtr has no sign applied (Shkzg is carried through as its
+       * own column, same as Debit Notes) since "closing balance" is a
+       * signed-both-ways document list, not a single net total.
+       */
+      onClosingBalancePress: function () {
+        this._sActiveMdPanel = "closingbalance"; this._persistUiState();
+        var sBukrs = this._sBukrs;
+        var sLifnr = this._oReconModel.getProperty("/mdLifnr");
+
+        if (!sBukrs || !sLifnr || !this._sKeyDateTo) {
+          MessageToast.show(
+            "Company Code, Supplier and From Date are required.",
+          );
+          return;
+        }
+
+        // _showMdPanel first: it swaps a still-untouched FY-start default
+        // To Date over to today, and reading _sKeyDateTo before that swap
+        // ran captured the stale FY-start value on the first non-Opening-
+        // Balance panel pressed each session (see onTransactionsPress).
+        this._showMdPanel("mdShowClosingBalance");
+        var sToDate = this._sKeyDateTo;
+
+        var oModel = this.getOwnerComponent().getModel();
+        var oReconModel = this._oReconModel;
+
+        // ClosingBalanceSet expects Lifnr zero-padded to 10 digits, same as
+        // DebitAmt1Set/VendBalAdvSet, and takes a single "as of" Budat (EQ)
+        // rather than a BudatFrom/BudatTo range â€" same "as of <To Date>"
+        // shape as VendBalAdvSet (Advance balance)/PendInvValuesSet (Pending
+        // invoices), not sKeyDate (From Date).
+        var sLifnrPadded = String(sLifnr).padStart(10, "0");
+        var aFilters = [
+          new Filter("Bukrs", FilterOperator.EQ, sBukrs),
+          new Filter("Lifnr", FilterOperator.EQ, sLifnrPadded),
+          new Filter("Budat", FilterOperator.EQ, new Date(sToDate)),
+        ];
+
+        oReconModel.setProperty("/closingBalanceBusy", true);
+
+        var that = this;
+
+        oModel.read("/ClosingBalanceSet", {
+          filters: aFilters,
+          success: function (oData) {
+            var aRawResults = oData.results || [];
+            if (aRawResults.length === 0) {
+              MessageToast.show("No closing balance items found.");
+            }
+
+            var fTotal = 0;
+            var aItems = aRawResults.map(function (o) {
+              var fDmbtr = parseFloat(o.Dmbtr) || 0;
+              var fSignedAmt = o.Shkzg === "H" ? -fDmbtr : fDmbtr;
+              fTotal += fSignedAmt;
+              return {
+                Belnr: o.Belnr,
+                Blart: o.DoctyDesc || o.Blart,
+                NetAmt: fSignedAmt,
+                Bukrs: o.Bukrs,
+                Lifnr: o.Lifnr,
+                Name1: o.Name1,
+                Sgtxt: o.Sgtxt,
+                Rebzg: o.Rebzg,
+                Waers: o.Waers,
+                Bstat: o.Bstat,
+                Budat: o.Budat,
+                Bldat: o.Bldat,
+                Umskz: o.Umskz,
+                Shkzg: o.Shkzg,
+                Augbl: o.Augdt,
+              };
+            });
+
+            oReconModel.setProperty("/closingBalanceItems", aItems);
+            oReconModel.setProperty("/closingBalanceTotal", fTotal);
+            oReconModel.setProperty(
+              "/closingBalanceSupplierName",
+              oReconModel.getProperty("/mdSupplierName") || "",
+            );
+            oReconModel.setProperty("/closingBalanceBusy", false);
+          },
+          error: function () {
+            oReconModel.setProperty("/closingBalanceItems", []);
+            oReconModel.setProperty("/closingBalanceTotal", 0);
+            oReconModel.setProperty("/closingBalanceBusy", false);
+            MessageToast.show("Error loading closing balance.");
+          },
+        });
+      },
+
+      /** Back navigation out of the Closing Balance panel: returns to the Line items view. */
+      onBackFromClosingBalance: function () {
+        this._oReconModel.setProperty("/mdShowClosingBalance", false);
       },
 
       /**

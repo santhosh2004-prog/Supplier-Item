@@ -192,10 +192,9 @@
 
                                             </HBox>
                                         </CustomListItem>
-
-                                        <!-- <CustomListItem
+                                         <CustomListItem
                                             type="Active"
-                                            press=".onAdvanceBalancePress"
+                                            press=".onPendingInvoicesPress"
                                             class="mdSidebarRowLI"
                                         >
                                             <HBox
@@ -208,18 +207,23 @@
                                                     class="mdSidebarRowLeft"
                                                 >
                                                     <Text
-                                                        text="Advance Balance"
+                                                        text="Invoices"
                                                         class="mdSidebarRowLabel"
                                                     />
                                                 </HBox>
                                                 <Text
-                                                    text="{ path: 'recon>/advanceTotal', formatter: '.formatSidebarAmount' }"
+                                                visible="{= !${recon>/sidebarBusy} }"
+                                                    text="{ path: 'recon>/pendingInvoicesTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
                                             </HBox>
-                                        </CustomListItem> -->
-
-                                        <CustomListItem
+                                        </CustomListItem>
+                                           <CustomListItem
                                             type="Active"
                                             press=".onDebitNotesPress"
                                             class="mdSidebarRowLI"
@@ -251,7 +255,6 @@
         />
                                             </HBox>
                                         </CustomListItem>
-
                                         <CustomListItem
                                             type="Active"
                                             press=".onModuleRowPress"
@@ -277,8 +280,7 @@
                                                 </HBox>
                                             </HBox>
                                         </CustomListItem>
-
-                                        <CustomListItem
+                                         <CustomListItem
                                             type="Active"
                                             press=".onPaymentsRowPress"
                                             class="mdSidebarRowLI"
@@ -310,9 +312,9 @@
                                             </HBox>
 
                                         </CustomListItem>
-                                        <CustomListItem
+                                         <CustomListItem
                                             type="Active"
-                                            press=".onPendingInvoicesPress"
+                                            press=".onClosingBalancePress"
                                             class="mdSidebarRowLI"
                                         >
                                             <HBox
@@ -325,13 +327,13 @@
                                                     class="mdSidebarRowLeft"
                                                 >
                                                     <Text
-                                                        text="Invoices"
+                                                        text="Closing Balance"
                                                         class="mdSidebarRowLabel"
                                                     />
                                                 </HBox>
                                                 <Text
                                                 visible="{= !${recon>/sidebarBusy} }"
-                                                    text="{ path: 'recon>/pendingInvoicesTotal', formatter: '.formatSidebarAmount' }"
+                                                    text="{ path: 'recon>/closingBalanceTotal', formatter: '.formatSidebarAmount' }"
                                                     class="mdSidebarRowValue"
                                                 />
                                                                                         <BusyIndicator
@@ -341,6 +343,48 @@
         />
                                             </HBox>
                                         </CustomListItem>
+
+
+
+                                        <CustomListItem
+                                            type="Active"
+                                            press=".onAdvanceBalancePress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                    
+                                                        text="Advance Balance"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
+                                                    text="{ path: 'recon>/advanceTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
+                                            </HBox>
+                                        </CustomListItem>
+
+                                     
+                                       
+                                        
+
+                                       
+                                       
 
                                         <CustomListItem class="mdSidebarGroupHeaderLI">
                                             <HBox
@@ -773,6 +817,10 @@
                                      
                                     <core:Fragment
                                         fragmentName="supplieropenitems.view.fragment.DebitNotesPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.ClosingBalancePanel"
                                         type="XML"
                                     />
                                     <core:Fragment

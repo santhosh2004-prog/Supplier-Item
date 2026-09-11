@@ -71,7 +71,8 @@
                         'recon>/mdShowAudQty',
                         'recon>/mdShowMatReceipts',
                         'recon>/mdShowVendorReturns',
-                        'recon>/mdShowShareOfBusiness'
+                        'recon>/mdShowShareOfBusiness',
+                        'recon>/mdShowClosingBalance'
                     ],
                     formatter: '.isFromDateEnabled'
                 }"
@@ -102,7 +103,8 @@
                         'recon>/mdShowAudQty',
                         'recon>/mdShowMatReceipts',
                         'recon>/mdShowVendorReturns',
-                        'recon>/mdShowShareOfBusiness'
+                        'recon>/mdShowShareOfBusiness',
+                        'recon>/mdShowClosingBalance'
                     ],
                     formatter: '.isFromDateEnabled'
                 }"

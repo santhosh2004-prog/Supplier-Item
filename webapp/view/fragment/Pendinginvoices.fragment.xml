@@ -233,7 +233,7 @@
                         <Label text="Amount" design="Bold" />
                     </table:label>
                     <table:template>
-                        <ObjectNumber number="{ path: 'recon>NetAmt', formatter: '.formatAmount' }" />
+                        <Text text="{ path: 'recon>NetAmt', formatter: '.formatAmount' }" textAlign="End" />
                     </table:template>
                     <table:customData>
                         <core:CustomData key="colId" value="oiCol4" />

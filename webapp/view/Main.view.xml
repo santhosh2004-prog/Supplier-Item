@@ -39,30 +39,55 @@
                             />
 
                             <!-- ═══ Chart / Vendors / Vendor history tabs ═══ -->
-                            <IconTabHeader
-                                id="dashboardTabHeader"
-                                class="dashboardTabHeaderElegant"
-                                select=".onTabSelect"
-                                mode="Inline"
-                                visible="{= ${recon>/count} > 0 &amp;&amp; !${recon>/masterDetailMode} }"
-                            >
-                                <items>
-                                    <IconTabFilter
-                                        key="chart"
-                                        text="Chart"
-                                    />
-                                    <IconTabFilter
-                                        key="vendors"
-                                        text="Vendors"
-                                        visible="{= !!${recon>/selectedCategory} }"
-                                    />
-                                    <IconTabFilter
-                                        key="kpi"
-                                        text="Vendor History"
-                                        visible="{= !!${recon>/selectedVendor} }"
-                                    />
-                                </items>
-                            </IconTabHeader>
+                            <!-- ═══ Chart / Vendors / Vendor history tabs ═══ -->
+<IconTabHeader
+    id="idIconTabBarNoIcons"
+    class="sapUiResponsiveContentPadding"
+    select=".onTabSelect"
+    mode="Inline"
+    visible="{= ${recon>/count} > 0 &amp;&amp; !${recon>/masterDetailMode} }"
+>
+    <items>
+        <IconTabFilter
+            key="chart"
+            text="Chart"
+        />
+
+        <IconTabFilter
+            key="vendors"
+           text="{= ${recon>/selectedCategory} ? ${recon>/selectedCategory} : '' }"
+            visible="{= !!${recon>/selectedCategory} }"
+        />
+        
+        	
+
+
+
+        <!-- <IconTabFilter
+            key="kpi"
+            text="Vendor History"
+            visible="{= !!${recon>/selectedVendor} }"
+        /> -->
+    </items>
+</IconTabHeader>
+
+<!-- Selected category + loading indicator -->
+<!-- <HBox
+    alignItems="Center"
+    class="vendorsForHeading"
+    visible="{= !!${recon>/selectedCategory} }"
+>
+    <Text
+        text="{= ${recon>/selectedCategory} ? ${recon>/selectedCategory} : '' }"
+        class="panelSubTitle"
+    />
+
+    <BusyIndicator
+        visible="{recon>/vendorsBusy}"
+        size="0.75rem"
+        class="sapUiTinyMarginBegin"
+    />
+</HBox> -->
                         </VBox>
                     </Toolbar>
                 </headerToolbar>
@@ -279,7 +304,7 @@
                                 visible="false"
                                 class="tabScrollArea vendorsTableWrapper"
                             >
-                                <Text
+                                <!-- <Text
                                     text="{= ${recon>/selectedCategory} ? '' + ${recon>/selectedCategory} : '' }"
                                     visible="{= !!${recon>/selectedCategory} }"
                                     class="panelSubTitle vendorsForHeading"
@@ -288,7 +313,7 @@
                                     visible="{recon>/vendorsBusy}"
                                     size="1.5rem"
                                     class="sapUiSmallMarginTop"
-                                />
+                                /> -->
                                 <!-- ═══ SAP grid table (sap.ui.table.Table) : column headers are
                                      fixed by the control itself while rows scroll underneath —
                                      same treatment as every other line-items table on this page,
@@ -296,13 +321,14 @@
                                 <table:Table
                                     id="vendorsTable"
                                     width="100%"
+                                    rowHeight="30"
                                     rows="{recon>/items}"
                                     busy="{recon>/vendorsBusy}"
                                     busyIndicatorDelay="0"
                                     selectionMode="None"
                                     enableColumnReordering="false"
                                     visibleRowCountMode="Fixed"
-                                    visibleRowCount="8"
+                                    visibleRowCount="10"
                                     noData="No vendor items found."
                                     class="mdLineItemsTable mdGridTable"
                                     cellClick=".onVendorItemPress"
@@ -335,7 +361,7 @@
     </table:label>
     <table:template>
         <ObjectStatus
-            text="{ path: 'recon>InvAmt', formatter: '.formatAmount' }"
+            text="₹ { path: 'recon>InvAmt', formatter: '.formatAmount' }"
             inverted="true"
             state="{= Number(${recon>InvAmt}) >= 100 ? 'Indication04' : 'Indication02' }"
         />
@@ -348,7 +374,9 @@
                                                 <Label text="Net Adv. Amt" design="Bold" />
                                             </table:label>
                                             <table:template>
-                                                <ObjectNumber number="{ path: 'recon>AdvAmt', formatter: '.formatAmount' }" />
+                                                <Text
+    text="₹ { path: 'recon>AdvAmt', formatter: '.formatAmount' }"
+/>
                                             </table:template>
                                         </table:Column>
                                         <!-- <table:Column width="14%" hAlign="End">
@@ -364,7 +392,7 @@
                                                 <Label text="Contracts Qty Bal." design="Bold" />
                                             </table:label>
                                             <table:template>
-                                                <Text text="{ path: 'recon>TrgMenge', formatter: '.formatAmount' }" textAlign="End" />
+                                                <Text text="₹ { path: 'recon>TrgMenge', formatter: '.formatAmount' }" textAlign="End" />
                                             </table:template>
                                         </table:Column>
                                         <table:Column width="13%" hAlign="End" sortProperty="TrgNetpr" filterProperty="TrgNetpr">
@@ -372,7 +400,7 @@
                                                 <Label text="Qty Balance Amt." design="Bold" />
                                             </table:label>
                                             <table:template>
-                                                <Text text="{recon>TrgNetpr} ₹ " textAlign="End" />
+                                                <Text text="₹ {recon>TrgNetpr}  " textAlign="End" />
                                             </table:template>
                                         </table:Column>
                                     </table:columns>

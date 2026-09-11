@@ -3,13 +3,15 @@
     xmlns:core="sap.ui.core"
     xmlns:table="sap.ui.table"
 >
-    <!-- ═══ Debit notes panel : shown in place of Line items after the
-         "Debit notes" module row is pressed. Calls DebitAmt1Set for the
-         current Company Code/Supplier/date range, same stat-tile + table
-         layout as Advance balance/Transactions — no bar chart. DebitAmt1Set
-         doesn't return a per-row posting date, so the table skips a Date
-         column. ═══ -->
-    <VBox visible="{recon>/mdShowDebitNotes}" class="mdPanelAnimate">
+    <!-- ═══ Closing balance panel : shown in place of Line items after the
+         "Closing Balance" module row is pressed. Calls ClosingBalanceSet for
+         the current Company Code/Supplier as of a single "Budat" date (not a
+         From/To range — see onClosingBalancePress), same stat-tile + table
+         layout as Debit notes/Advance balance — no bar chart. Same 15-field
+         FI schema as every other FI table (Document/Date/Type/Amount/Status/
+         ... via recon>Belnr/Budat/Blart/NetAmt/Augbl/...), so it shares
+         Column Settings/Select Layout with them (see OI_TABLE_IDS). ═══ -->
+    <VBox visible="{recon>/mdShowClosingBalance}" class="mdPanelAnimate">
         <FlexBox
             class="mdStatTilesRow"
             wrap="Wrap"
@@ -20,7 +22,7 @@
                 visible="{= !${recon>/mdLeftPanelOpen} }"
             >
                 <Button
-                    id="mdLeftPanelMenuButtonDebitNotes"
+                    id="mdLeftPanelMenuButtonClosingBalance"
                     icon="sap-icon://navigation-right-arrow"
                     type="Transparent"
                     tooltip="Open"
@@ -29,7 +31,7 @@
                 />
             </HBox>
             <VBox
-                visible="{= ${recon>/debitNotesBusy} || ${recon>/debitNotesItems}.length > 0 }"
+                visible="{= ${recon>/closingBalanceBusy} || ${recon>/closingBalanceItems}.length > 0 }"
                 class="mdStatTile mdStatTileBlue"
             >
                 <HBox
@@ -38,18 +40,18 @@
                 >
                     <HBox alignItems="Center" class="mdStatTileContent">
                         <Text
-                            text="Debit Amount :"
+                            text="Closing Balance :"
                             class="panelSubTitle mdNoMargin textLeft"
                         />
                         <Text
-                            text="{ path: 'recon>/debitNotesTotal', formatter: '.formatBalanceValue' }"
+                            text="{ path: 'recon>/closingBalanceTotal', formatter: '.formatBalanceValue' }"
                             class="panelSubValue mdNoMargin debitAmountValue"
                         />
                     </HBox>
                 </HBox>
             </VBox>
             <VBox
-                visible="{= ${recon>/debitNotesBusy} || ${recon>/debitNotesItems}.length > 0 }"
+                visible="{= ${recon>/closingBalanceBusy} || ${recon>/closingBalanceItems}.length > 0 }"
                 class="mdStatTile mdStatTileGreen"
             >
                 <HBox
@@ -58,75 +60,16 @@
                 >
                     <HBox alignItems="Center" class="mdStatTileContent">
                         <Text
-                            text="Debit Items :"
+                            text="Closing Balance Items :"
                             class="panelSubTitle mdNoMargin textLeft"
                         />
                         <Text
-                            text="{= ${recon>/debitNotesItems}.length }"
+                            text="{= ${recon>/closingBalanceItems}.length }"
                             class="panelSubValue mdNoMargin debitItemsValue"
                         />
                     </HBox>
                 </HBox>
             </VBox>
-             <!-- <HBox class="mdExportBtns">
-                <Button
-                    icon="sap-icon://refresh"
-                    type="Transparent"
-                    tooltip="Refresh"
-                    press=".onRefreshMasterDetail"
-                />
-                <Button
-                    icon="sap-icon://nav-back"
-                    type="Success"
-                    tooltip="Back to Chart"
-                    press=".onBackToChart"
-                />
-            </HBox> -->
-             <HBox class="mdExportBtns mdLineItemsToolBtns">
-                <Button
-                    icon="sap-icon://action-settings"
-                    text="Column Settings"
-                    type="Transparent"
-                    tooltip="Column Settings"
-                    press=".onLineItemsColumnSettingsPress"
-                >
-                    <customData>
-                        <core:CustomData key="tableId" value="debitNotesTable" />
-                    </customData>
-                </Button>
-                <Button
-                    icon="sap-icon://table-view"
-                    text="Select Layout"
-                    type="Transparent"
-                    tooltip="Select Layout"
-                    press=".onLineItemsLayoutDialogPress"
-                >
-                    <customData>
-                        <core:CustomData key="tableId" value="debitNotesTable" />
-                    </customData>
-                </Button>
-            </HBox>
-        </FlexBox>
-
-        <IllustratedMessage
-            visible="{= !${recon>/debitNotesBusy} &amp;&amp; ${recon>/debitNotesItems}.length === 0 }"
-            illustrationType="sapIllus-NoData"
-            illustrationSize="Spot"
-            title="No Debit Notes Data"
-            description="{= 'No debit notes found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
-            class="mdNoDataIllustration"
-        />
-
-        <!-- <HBox
-            justifyContent="SpaceBetween"
-            alignItems="Center"
-            class="mdRightHeaderRow"
-            visible="{= ${recon>/debitNotesBusy} || ${recon>/debitNotesItems}.length > 0 }"
-        >
-            <Text
-                text="{= 'Debit Notes (' + ${recon>/debitNotesItems}.length + ' records)' }"
-                class="panelSubTitle mdLineItemsTitle mdNoMargin"
-            />
             <HBox class="mdExportBtns mdLineItemsToolBtns">
                 <Button
                     icon="sap-icon://action-settings"
@@ -136,7 +79,7 @@
                     press=".onLineItemsColumnSettingsPress"
                 >
                     <customData>
-                        <core:CustomData key="tableId" value="debitNotesTable" />
+                        <core:CustomData key="tableId" value="closingBalanceTable" />
                     </customData>
                 </Button>
                 <Button
@@ -147,36 +90,42 @@
                     press=".onLineItemsLayoutDialogPress"
                 >
                     <customData>
-                        <core:CustomData key="tableId" value="debitNotesTable" />
+                        <core:CustomData key="tableId" value="closingBalanceTable" />
                     </customData>
                 </Button>
             </HBox>
-        </HBox> -->
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/closingBalanceBusy} &amp;&amp; ${recon>/closingBalanceItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Closing Balance Data"
+            description="{= 'No closing balance items found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
 
         <table:Table
-            id="debitNotesTable"
+            id="closingBalanceTable"
             width="100%"
             rowHeight="24"
             columnHeaderHeight="26"
-            rows="{recon>/debitNotesItems}"
-            busy="{recon>/debitNotesBusy}"
+            rows="{recon>/closingBalanceItems}"
+            busy="{recon>/closingBalanceBusy}"
             busyIndicatorDelay="0"
-            visible="{= ${recon>/debitNotesBusy} || ${recon>/debitNotesItems}.length > 0 }"
+            visible="{= ${recon>/closingBalanceBusy} || ${recon>/closingBalanceItems}.length > 0 }"
             selectionMode="None"
             enableColumnReordering="false"
             visibleRowCountMode="Auto"
             minAutoRowCount="13"
-            noData="No debit notes found."
+            noData="No closing balance items found."
             class="mdLineItemsTable mdGridTable"
         >
             <table:columns>
                 <!-- ═══ customData key="colId" — same shared colId scheme as
-                     masterDetailTable; oiCol2 (Date) and oiCol5 (Status) are
-                     included here for schema parity with the other tables
-                     even though DebitAmt1Set returns neither a posting date
-                     nor a clearing document (so Date renders blank and
-                     Status always shows "Open") — dropped or reordered like
-                     any other column via Column Settings. ═══ -->
+                     masterDetailTable/debitNotesTable/etc. (see OI_TABLE_IDS
+                     and the Column Settings/Select Layout comment above
+                     onOpenItemsColumnSettingsConfirm). ═══ -->
                 <table:Column width="20%" sortProperty="Belnr" filterProperty="Belnr">
                     <table:label>
                         <Label text="Document" design="Bold" />
