@@ -257,6 +257,37 @@
                                         </CustomListItem>
                                         <CustomListItem
                                             type="Active"
+                                            press=".onAdvAndOtherAdjPress"
+                                            class="mdSidebarRowLI"
+                                        >
+                                            <HBox
+                                                justifyContent="SpaceBetween"
+                                                alignItems="Center"
+                                                class="mdSidebarRowInner"
+                                            >
+                                                <HBox
+                                                    alignItems="Center"
+                                                    class="mdSidebarRowLeft"
+                                                >
+                                                    <Text
+                                                        text="Advance &amp; Other Adjustments"
+                                                        class="mdSidebarRowLabel"
+                                                    />
+                                                </HBox>
+                                                <Text
+                                                visible="{= !${recon>/sidebarBusy} }"
+                                                    text="{ path: 'recon>/advAndOtherAdjTotal', formatter: '.formatSidebarAmount' }"
+                                                    class="mdSidebarRowValue"
+                                                />
+                                                                                        <BusyIndicator
+           visible="{recon>/sidebarBusy}"
+            size="0.6rem"
+            class="sapUiTinyMarginBottom mdSidebarRowLabel"
+        />
+                                            </HBox>
+                                        </CustomListItem>
+                                        <CustomListItem
+                                            type="Active"
                                             press=".onModuleRowPress"
                                             class="mdSidebarRowLI"
                                         >
@@ -817,6 +848,10 @@
                                      
                                     <core:Fragment
                                         fragmentName="supplieropenitems.view.fragment.DebitNotesPanel"
+                                        type="XML"
+                                    />
+                                    <core:Fragment
+                                        fragmentName="supplieropenitems.view.fragment.AdvAndOtherAdjPanel"
                                         type="XML"
                                     />
                                     <core:Fragment

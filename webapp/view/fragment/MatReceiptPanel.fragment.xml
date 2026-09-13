@@ -30,64 +30,78 @@
                     press=".onMdLeftPanelMenuPress"
                 />
             </HBox>
-            <!-- <VBox
-                visible="{= ${recon>/matReceiptsBusy} || ${recon>/matReceiptsItems}.length > 0 }"
-                class="mdStatTile mdStatTileNeutral"
-            >
-                <Text
-                    text="Material Receipts"
-                    class="panelSubTitle mdNoMargin textLeft"
-                />
-            </VBox> -->
+            <!-- ═══ Identity tile — same layout as the Total PO value
+                 panel's identity tile (see TotalPOPanel.fragment.xml):
+                 identity full-width across the top, a horizontal divider,
+                 then Receipt Items / Total Amount / Average Price below. ═══ -->
             <VBox
                 visible="{= ${recon>/matReceiptsBusy} || ${recon>/matReceiptsItems}.length > 0 }"
-                class="mdStatTile mdStatTileBlue"
+                class="mdStatTile1 mdStatTileNeutral mdPaymentsIdentityTile"
             >
-                <HBox
-                    justifyContent="SpaceBetween"
-                    alignItems="Center"
-                >
-                    <HBox alignItems="Center" class="mdStatTileContent">
-                        <Text
-                            text="Total Receipt Qty :"
-                            class="panelSubTitle mdNoMargin textLeft"
-                        />
-                        <Text
-                            text="{ path: 'recon>/matReceiptsTotal', formatter: '.formatBalanceValue' }"
-                            class="panelSubValue mdNoMargin openingBalanceValue"
-                        />
-                    </HBox>
-                    <core:Icon
-                        src="sap-icon://trend-up"
-                        class="mdStatIcon mdStatIconBlue"
-                    />
+                <HBox class="mdPaymentsTileCols">
+                    <VBox class="mdPaymentsTileCol">
+                        <HBox alignItems="Center" class="mdStatTileContent">
+                            <Text
+                                text="Total Receipt Qty :"
+                                class="panelSubTitle mdNoMargin textLeft"
+                            />
+                            <Text
+                                text="{ path: 'recon>/matReceiptsTotal', formatter: '.formatBalanceValue' }"
+                                class="panelSubValue mdNoMargin openingBalanceValue "
+                            />
+                        </HBox>
+                    </VBox>
+                    <VBox class="mdPaymentsTileCol mdPaymentsTileColRight">
+                        <HBox alignItems="Center" class="mdStatTileContent">
+                            <Text
+                                text="Receipt Items :"
+                                class="panelSubTitle mdNoMargin textLeft "
+                            />
+                            <Text
+                                text="{= ${recon>/matReceiptsItems}.length }"
+                                class="panelSubValue mdNoMargin openingBalanceValue"
+                            />
+                        </HBox>
+                    </VBox>
                 </HBox>
-            </VBox>
-            <VBox
-                visible="{= ${recon>/matReceiptsBusy} || ${recon>/matReceiptsItems}.length > 0 }"
-                class="mdStatTile mdStatTileGreen"
-            >
-                <HBox
-                    justifyContent="SpaceBetween"
-                    alignItems="Center"
-                >
-                    <HBox alignItems="Center" class="mdStatTileContent">
-                        <Text
-                            text="Receipt Items :"
-                            class="panelSubTitle mdNoMargin textLeft"
-                        />
-                        <Text
-                            text="{= ${recon>/matReceiptsItems}.length }"
-                            class="panelSubValue mdNoMargin openingBalanceValue"
-                        />
-                    </HBox>
-                    <core:Icon
-                        src="sap-icon://list"
-                        class="mdStatIcon mdStatIconGreen"
-                    />
+                <HBox class="mdPaymentsTileDivider" />
+
+                <HBox class="mdPaymentsTileCols">
+                    <VBox class="mdPaymentsTileCol">
+                        <HBox alignItems="Center" class="mdStatTileContent">
+                            <Text
+                                text="Total Amount :"
+                                class="panelSubTitle mdNoMargin textLeft"
+                            />
+                            <Text
+                                text="₹ { path: 'recon>/matReceiptsValueTotal', formatter: '.formatAmount' }"
+                                class="panelSubValue mdNoMargin openingBalanceValue "
+                            />
+                        </HBox>
+                    </VBox>
+                    <VBox class="mdPaymentsTileCol mdPaymentsTileColRight">
+                        <HBox alignItems="Center" class="mdStatTileContent">
+                            <Text
+                                text="Average Price :"
+                                class="panelSubTitle mdNoMargin textLeft"
+                            />
+                            <Text
+                                text="₹ {= ${recon>/matReceiptsTotal} ? (${recon>/matReceiptsValueTotal} / ${recon>/matReceiptsTotal}).toFixed(2) : '0.00' }"
+                                class="panelSubValue mdNoMargin openingBalanceValue"
+                            />
+                        </HBox>
+                    </VBox>
                 </HBox>
+
             </VBox>
             <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://filter"
+                    text="{= ${recon>/matReceiptsSelectedMaterials}.length > 0 ? 'Material (' + ${recon>/matReceiptsSelectedMaterials}.length + ')' : 'Material' }"
+                    type="Transparent"
+                    tooltip="Filter by Material"
+                    press=".onMatReceiptsMaterialFilterPress"
+                />
                 <Button
                     icon="sap-icon://action-settings"
                     text="Column Settings"
@@ -251,7 +265,7 @@
                         <Label text="Quantity" design="Bold" />
                     </table:label>
                     <table:template>
-                        <Text text="{= ${recon>Menge} + ' ' + ${recon>Meins} }" textAlign="End" />
+                        <Text text="{= (Math.floor(Number(${recon>Menge}) * 100) / 100).toFixed(2) + ' ' + ${recon>Meins} }" textAlign="End" />
                     </table:template>
                     <table:customData>
                         <core:CustomData key="colId" value="col6" />

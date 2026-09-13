@@ -255,7 +255,7 @@
 }
 
 .panelSubTitle {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 900;
     color: #1a2b47;
     margin-bottom: 0.2;
@@ -1132,7 +1132,7 @@
 }
 
 .mdStatValue {
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     font-weight: 700;
     color: #1a2b47;
 }
@@ -2268,7 +2268,7 @@
     }
 
     .panelSubTitle {
-        font-size: 1rem;
+        font-size: 0.8rem;
     }
 
     .mdRightPanel {

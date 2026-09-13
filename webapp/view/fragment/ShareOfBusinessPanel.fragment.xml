@@ -374,7 +374,7 @@
                 selectionMode="None"
                 enableColumnReordering="false"
                 visibleRowCountMode="Auto"
-                minAutoRowCount="13"
+                minAutoRowCount="10"
                 noData="No breakdown data found."
                 class="mdLineItemsTable mdGridTable mdSobBreakdownTable"
             >
@@ -566,7 +566,7 @@
             <table:Table
                 id="totalShareBusinessTable"
                 width="100%"
-                rowHeight="22"
+                rowHeight="25"
                 columnHeaderHeight="20"
                 rows="{recon>/totalShareBusinessItems}"
                 busy="{recon>/totalShareBusinessBusy}"
@@ -575,7 +575,7 @@
                 selectionMode="None"
                 enableColumnReordering="false"
                 visibleRowCountMode="Auto"
-                minAutoRowCount="9"
+                minAutoRowCount="10"
                 noData="No Total Qty breakdown data found."
                 class="mdLineItemsTable mdGridTable mdSobBreakdownTable"
             >
@@ -626,7 +626,7 @@
                             <Label text="Quan. Share " design="Bold" />
                         </table:label>
                         <table:template>
-                            <Text text="% {= (Math.floor(Number(${recon>SobLMenge}) * 100) / 100).toFixed(2) }" textAlign="End" />
+                            <Text text=" {= (Math.floor(Number(${recon>SobLMenge}) * 100) / 100).toFixed(2)+ ' %' }" textAlign="End" />
                         </table:template>
                     </table:Column>
                     <!-- Share of Qty -->
@@ -691,7 +691,7 @@
                             <Label text="Value. Share" design="Bold" />
                         </table:label>
                         <table:template>
-                            <Text text="% {= (Math.floor(Number(${recon>SobLNetwr}) * 100) / 100).toFixed(2) }" textAlign="End" />
+                            <Text text="{= (Math.floor(Number(${recon>SobLNetwr}) * 100) / 100).toFixed(2) + ' %'} " textAlign="End" />
                         </table:template>
                     </table:Column>
 

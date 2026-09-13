@@ -3,6 +3,7 @@
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
+    "sap/ui/model/Sorter",
     "sap/ui/model/json/JSONModel",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
@@ -20,6 +21,7 @@
     Controller,
     Filter,
     FilterOperator,
+    Sorter,
     JSONModel,
     MessageToast,
     MessageBox,
@@ -468,6 +470,7 @@
         "mdShowTransactions",
         "mdShowAdvance",
         "mdShowDebitNotes",
+        "mdShowAdvAndOtherAdj",
         "mdShowPendingInvoices",
         "mdShowTotalPO",
         "mdShowPendingPO",
@@ -852,6 +855,10 @@
           debitNotesItems: [],
           debitNotesTotal: 0,
           debitNotesBusy: false,
+          mdShowAdvAndOtherAdj: false,
+          advAndOtherAdjItems: [],
+          advAndOtherAdjTotal: 0,
+          advAndOtherAdjBusy: false,
           mdShowPendingInvoices: false,
           pendingInvoicesItems: [],
           pendingInvoicesTotal: 0,
@@ -892,14 +899,22 @@
           lotsReceivedCount: 0,
           rejectedQtyCount: 0,
           matReceiptsItems: [],
+          matReceiptsItemsAll: [],
           matReceiptsTotal: 0,
+          matReceiptsValueTotal: 0,
           matReceiptsBusy: false,
           matReceiptsSupplierName: "",
+          matReceiptsMaterialOptions: [],
+          matReceiptsSelectedMaterials: [],
           vendorReturnsItems: [],
+          vendorReturnsItemsAll: [],
           vendorReturnsTotal: 0,
+          vendorReturnsValueTotal: 0,
           vendorReturnsCount: 0,
           vendorReturnsBusy: false,
           vendorReturnsSupplierName: "",
+          vendorReturnsMaterialOptions: [],
+          vendorReturnsSelectedMaterials: [],
           totalPOBusy: false,
           totalPOSupplierName: "",
           mdShowPendingPO: false,
@@ -911,6 +926,8 @@
           advanceContractQty: 0,
           pendingPOTypeTotals: [],
           mdPendingPOSelectedCategory: null,
+          pendingPOMaterialOptions: [],
+          pendingPOSelectedMaterials: [],
           pendingPOBusy: false,
           pendingPOSupplierName: "",
           mdShowLotsReceived: false,
@@ -1076,6 +1093,9 @@
             break;
           case "debitnotes":
             this.onDebitNotesPress();
+            break;
+          case "advandotheradj":
+            this.onAdvAndOtherAdjPress();
             break;
           case "closingbalance":
             this.onClosingBalancePress();
@@ -1270,6 +1290,31 @@
           },
           error: function () {
             oReconModel.setProperty("/debitNotesTotal", 0);
+            fnOnRequestComplete();
+          },
+        });
+
+        // Advance & other adjustments â€" AdvAndOtherAdjSet's Dmbtr is NOT
+        // already signed (unlike DebitAmt1Set above), so it's summed with
+        // the same signed-Shkzg convention as Advance balance/Closing
+        // balance, same as onAdvAndOtherAdjPress's own read.
+        iRequestCount++;
+        oModel.read("/AdvAndOtherAdjSet", {
+          filters: [
+            new Filter("Bukrs", FilterOperator.EQ, sBukrs),
+            new Filter("Lifnr", FilterOperator.EQ, sLifnrPadded),
+            new Filter("BudatFrom", FilterOperator.EQ, new Date(sKeyDate)),
+            new Filter("BudatTo", FilterOperator.EQ, new Date(sToDate)),
+          ],
+          success: function (oData) {
+            oReconModel.setProperty(
+              "/advAndOtherAdjTotal",
+              sumSigned(oData.results),
+            );
+            fnOnRequestComplete();
+          },
+          error: function () {
+            oReconModel.setProperty("/advAndOtherAdjTotal", 0);
             fnOnRequestComplete();
           },
         });
@@ -1527,13 +1572,19 @@
             new Filter("Todate", FilterOperator.EQ, new Date(sToDate)),
           ],
           success: function (oData) {
-            var fTotal = (oData.results || []).reduce(function (fSum, o) {
+            var aResults = oData.results || [];
+            var fTotal = aResults.reduce(function (fSum, o) {
               return fSum + (parseFloat(o.Menge) || 0);
             }, 0);
+            var fValueTotal = aResults.reduce(function (fSum, o) {
+              return fSum + (parseFloat(o.Dmbtr) || 0);
+            }, 0);
             oReconModel.setProperty("/matReceiptsTotal", fTotal);
+            oReconModel.setProperty("/matReceiptsValueTotal", fValueTotal);
           },
           error: function () {
             oReconModel.setProperty("/matReceiptsTotal", 0);
+            oReconModel.setProperty("/matReceiptsValueTotal", 0);
           },
         });
 
@@ -1555,11 +1606,16 @@
             var fTotal = aResults.reduce(function (fSum, o) {
               return fSum + (parseFloat(o.Menge) || 0);
             }, 0);
+            var fValueTotal = aResults.reduce(function (fSum, o) {
+              return fSum + (parseFloat(o.Dmbtr) || 0);
+            }, 0);
             oReconModel.setProperty("/vendorReturnsTotal", fTotal);
+            oReconModel.setProperty("/vendorReturnsValueTotal", fValueTotal);
             oReconModel.setProperty("/vendorReturnsCount", aResults.length);
           },
           error: function () {
             oReconModel.setProperty("/vendorReturnsTotal", 0);
+            oReconModel.setProperty("/vendorReturnsValueTotal", 0);
             oReconModel.setProperty("/vendorReturnsCount", 0);
           },
         });
@@ -1988,6 +2044,49 @@
       },
 
       /**
+       * Fired when a column header on the Vendors tab's grid table
+       * (vendorsTable) is clicked to sort. The amount/quantity columns
+       * (InvAmt/AdvAmt/TrgMenge/TrgNetpr) come from OData as numeric-looking
+       * strings (e.g. "-1005948.07"), so sap.ui.table.Table's default sort
+       * compared them as STRINGS â€" that ordered "-100" before "-99" and made
+       * the Closing Bal. Amt column look randomly shuffled instead of
+       * monotonically increasing/decreasing. We take over the sort here and
+       * force a numeric comparator for those columns.
+       */
+      onVendorsTableSort: function (oEvent) {
+        oEvent.preventDefault();
+
+        var oTable = oEvent.getSource();
+        var oColumn = oEvent.getParameter("column");
+        var sSortOrder = oEvent.getParameter("sortOrder");
+        var bDesc = sSortOrder === "Descending";
+        var sProperty = oColumn.getSortProperty();
+        if (!sProperty) return;
+
+        var aNumericFields = ["InvAmt", "AdvAmt", "TrgMenge", "TrgNetpr"];
+        var bNumeric = aNumericFields.indexOf(sProperty) !== -1;
+        var fnComparator = bNumeric
+          ? function (x, y) {
+              var fX = parseFloat(x) || 0;
+              var fY = parseFloat(y) || 0;
+              return fX < fY ? -1 : fX > fY ? 1 : 0;
+            }
+          : undefined;
+
+        var oBinding = oTable.getBinding("rows");
+        if (oBinding) {
+          oBinding.sort(new Sorter(sProperty, bDesc, false, fnComparator));
+        }
+
+        oTable.getColumns().forEach(function (oCol) {
+          oCol.setSorted(oCol === oColumn);
+          if (oCol === oColumn) {
+            oCol.setSortOrder(sSortOrder);
+          }
+        });
+      },
+
+      /**
        * Fired from the small sort icon next to each column header in the
        * Open Items detail dialog. Clicking the same field again flips
        * ascending/descending; clicking a different field starts it fresh at
@@ -2038,6 +2137,7 @@
         "transactionsTable",
         "advanceTable",
         "debitNotesTable",
+        "advAndOtherAdjTable",
         "paymentsTable",
         "pendingInvoicesTable",
         "closingBalanceTable",
@@ -2058,6 +2158,7 @@
         transactionsTable: "FI",
         advanceTable: "FI",
         debitNotesTable: "FI",
+        advAndOtherAdjTable: "FI",
         paymentsTable: "FI",
         pendingInvoicesTable: "FI",
         totalPOTable: "MM",
@@ -2082,7 +2183,7 @@
         totalPOTable: [
           { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
           { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
-          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
+          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= (Math.floor(Number(${recon>Menge}) * 100) / 100).toFixed(2) + ' ' + ${recon>Meins} }" }); } },
           { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
           { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
           { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
@@ -2106,7 +2207,7 @@
           { id: "col1", label: "PO Number", field: "Ebeln", width: "8rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebeln}" }); } },
           { id: "col7", label: "Date", field: "Bedat", width: "7rem", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Bedat", formatter: that.formatOpenItemDate.bind(that) } }); } },
           
-          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }" }); } },
+          { id: "col6", label: "Quantity", field: "Menge", width: "8rem", hAlign: "End", cell: function () { return new sap.m.Text({ text: "{= (Math.floor(Number(${recon>Menge}) * 100) / 100).toFixed(2) + ' ' + ${recon>Meins} }" }); } },
           { id: "col9", label: "Unit Price", field: "Netpr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netpr", formatter: that.formatAmount.bind(that) } }); } },
           { id: "col21", label: "Net Value", field: "Netwr", width: "8rem", hAlign: "End", cell: function (that) { return new sap.m.Text({ text: { path: "recon>Netwr", formatter: that.formatAmount.bind(that) } }); } },
           { id: "col2", label: "PO Item", field: "Ebelp", width: "6rem", cell: function () { return new sap.m.Text({ text: "{recon>Ebelp}" }); } },
@@ -2162,7 +2263,7 @@
         hAlign: "End",
         cell: function () {
             return new sap.m.Text({
-                text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }"
+                text: "{= (Math.floor(Number(${recon>Menge}) * 100) / 100).toFixed(2) + ' ' + ${recon>Meins} }"
             });
         }
     },
@@ -2287,7 +2388,22 @@
         hAlign: "End",
         cell: function () {
             return new sap.m.Text({
-                text: "{= ${recon>Menge} + ' ' + ${recon>Meins} }"
+                text: "{= (Math.floor(Number(${recon>Menge}) * 100) / 100).toFixed(2) + ' ' + ${recon>Meins} }"
+            });
+        }
+    },
+     {
+        id: "col21",
+        label: "Net Value",
+        field: "Dmbtr",
+        width: "8rem",
+        hAlign: "End",
+        cell: function (that) {
+            return new sap.m.Text({
+                text: {
+                    path: "recon>Dmbtr",
+                    formatter: that.formatAmount.bind(that)
+                }
             });
         }
     },
@@ -3555,6 +3671,7 @@
         bVendorReturns,
         bShareOfBusiness,
         bClosingBalance,
+        bAdvAndOtherAdj,
       ) {
         if (!bMasterDetailMode) return true;
         // Closing Balance uses a single "as of" Budat (= To Date only, same
@@ -3576,7 +3693,8 @@
           bAudQty ||
           bMatReceipts ||
           bVendorReturns ||
-          bShareOfBusiness;
+          bShareOfBusiness ||
+          bAdvAndOtherAdj;
 
         // Nothing else showing means Opening Balance (the default panel)
         // is â€" disable, same as Advance/Pending Invoices above.
@@ -4363,7 +4481,7 @@
             }
           }
           if (aSelectedMaterials.length > 0) {
-            return aSelectedMaterials.indexOf(o.Matnr) > -1;
+            return aSelectedMaterials.indexOf(o.Maktx) > -1;
           }
           return true;
         });
@@ -4451,6 +4569,128 @@
         }
         this._oReconModel.setProperty("/totalPOSelectedMaterials", []);
         this._applyTotalPOFilters();
+      },
+
+      /**
+       * Builds the unique-Material-Description option list shared by every
+       * Materials (MM) panel's "Filter: Material" popover (Total PO,
+       * Pending PO, Material Receipts, Vendor Returns) â€" one entry per
+       * distinct Maktx (Material Description) actually present in the
+       * given items array, keyed AND matched on that description itself
+       * (not the raw Matnr number), so the checkbox list — and the filter
+       * it drives — is purely description-based. Falls back to the Matnr
+       * number only for rows with no description at all, so every row
+       * still gets a usable filter entry.
+       */
+      _buildMaterialOptions: function (aItems) {
+        var aOptions = [];
+        var oSeen = {};
+        (aItems || []).forEach(function (o) {
+          var sDesc = o.Maktx || o.Matnr;
+          if (sDesc && !oSeen[sDesc]) {
+            oSeen[sDesc] = true;
+            aOptions.push({ key: sDesc, text: sDesc });
+          }
+        });
+        aOptions.sort(function (a, b) {
+          return a.text.localeCompare(b.text);
+        });
+        return aOptions;
+      },
+
+      /**
+       * Opens the shared "Filter: Material" popover (MaterialFilterPopover
+       * fragment) used by Pending PO / Material Receipts / Vendor Returns
+       * — same multi-select-checkbox pattern as Total PO's own dedicated
+       * popover, just generalized across panels instead of one fragment
+       * per panel. sOptionsProp/sSelectedProp name the recon model
+       * properties this panel keeps its material options/selection under
+       * (e.g. "pendingPOMaterialOptions"/"pendingPOSelectedMaterials"),
+       * and fnApply is that panel's own _applyXFilters function (bound to
+       * `this`) â€" all three are remembered on the controller instance
+       * (there's only one shared popover, so only one panel's filter can
+       * be "open" at a time) so the generic selectionChange/Clear handlers
+       * below know which panel's selection to update and which filter
+       * function to re-run.
+       */
+      _openMaterialFilterPopover: function (
+        oEvent,
+        sOptionsProp,
+        sSelectedProp,
+        fnApply,
+      ) {
+        var oView = this.getView();
+        var oButton = oEvent.getSource();
+        var oReconModel = this._oReconModel;
+        var aOptions = oReconModel.getProperty("/" + sOptionsProp) || [];
+        var aSelected = oReconModel.getProperty("/" + sSelectedProp) || [];
+
+        this._sActiveMaterialFilterProp = sSelectedProp;
+        this._fnActiveMaterialFilterApply = fnApply;
+
+        oView.setModel(
+          new JSONModel({
+            values: aOptions.map(function (o) {
+              return {
+                key: o.key,
+                text: o.text,
+                selected: aSelected.indexOf(o.key) > -1,
+              };
+            }),
+          }),
+          "mmMaterialFilterModel",
+        );
+
+        var that = this;
+        if (!this._oMMMaterialFilterPopover) {
+          Fragment.load({
+            id: oView.getId(),
+            name: "supplieropenitems.view.fragment.MaterialFilterPopover",
+            controller: this,
+          }).then(function (oPopover) {
+            that._oMMMaterialFilterPopover = oPopover;
+            oView.addDependent(oPopover);
+            oPopover.openBy(oButton);
+          });
+        } else {
+          this._oMMMaterialFilterPopover.openBy(oButton);
+        }
+      },
+
+      /** Ticked/unticked in the shared Material filter popover — updates whichever panel's selection is currently active and re-runs its filter. */
+      onMMMaterialFilterChange: function () {
+        var oList = this.byId("mmMaterialFilterList");
+        if (!oList || !this._sActiveMaterialFilterProp) return;
+
+        var aSelectedKeys = oList.getSelectedItems().map(function (oItem) {
+          return oItem
+            .getBindingContext("mmMaterialFilterModel")
+            .getProperty("key");
+        });
+        this._oReconModel.setProperty(
+          "/" + this._sActiveMaterialFilterProp,
+          aSelectedKeys,
+        );
+        if (this._fnActiveMaterialFilterApply) {
+          this._fnActiveMaterialFilterApply();
+        }
+      },
+
+      /** "Clear" in the shared Material filter popover — back to every material shown for whichever panel is currently active. */
+      onMMMaterialFilterClear: function () {
+        var oList = this.byId("mmMaterialFilterList");
+        if (oList) {
+          oList.removeSelections(true);
+        }
+        if (!this._sActiveMaterialFilterProp) return;
+
+        this._oReconModel.setProperty(
+          "/" + this._sActiveMaterialFilterProp,
+          [],
+        );
+        if (this._fnActiveMaterialFilterApply) {
+          this._fnActiveMaterialFilterApply();
+        }
       },
 
       /**
@@ -4559,23 +4799,44 @@
         var sCurrent = oReconModel.getProperty(
           "/mdPendingPOSelectedCategory",
         );
-        var aAll = oReconModel.getProperty("/pendingPOItemsAll") || [];
-        var aShown;
+        oReconModel.setProperty(
+          "/mdPendingPOSelectedCategory",
+          sCurrent === sCategoryKey ? null : sCategoryKey,
+        );
+        this._applyPendingPOFilters();
+      },
 
-        if (sCurrent === sCategoryKey) {
-          oReconModel.setProperty("/mdPendingPOSelectedCategory", null);
-          aShown = aAll;
-        } else {
-          aShown = aAll.filter(function (o) {
-            return sCategoryKey === "K"
-              ? o.Bstyp === "K"
-              : o.Bstyp !== "K";
-          });
-          oReconModel.setProperty(
-            "/mdPendingPOSelectedCategory",
-            sCategoryKey,
-          );
-        }
+      /**
+       * Recomputes /pendingPOItems (bound to the Pending PO table) from
+       * /pendingPOItemsAll by combining BOTH active Pending PO filters —
+       * the PO/Contract bar-chart category (/mdPendingPOSelectedCategory,
+       * see _onPendingPOCategorySelected) and the Material checkbox filter
+       * (/pendingPOSelectedMaterials, see onPendingPOMaterialFilterChange)
+       * — same two-filters-combined approach as _applyTotalPOFilters. Also
+       * recomputes /pendingPOTotal and /pendingPOQty from whichever rows
+       * are now showing.
+       */
+      _applyPendingPOFilters: function () {
+        var oReconModel = this._oReconModel;
+        var aAll = oReconModel.getProperty("/pendingPOItemsAll") || [];
+        var sCategoryKey = oReconModel.getProperty(
+          "/mdPendingPOSelectedCategory",
+        );
+        var aSelectedMaterials =
+          oReconModel.getProperty("/pendingPOSelectedMaterials") || [];
+
+        var aShown = aAll.filter(function (o) {
+          if (sCategoryKey) {
+            var bIsContract = o.Bstyp === "K";
+            if (sCategoryKey === "K" ? !bIsContract : bIsContract) {
+              return false;
+            }
+          }
+          if (aSelectedMaterials.length > 0) {
+            return aSelectedMaterials.indexOf(o.Maktx) > -1;
+          }
+          return true;
+        });
 
         oReconModel.setProperty("/pendingPOItems", aShown);
         oReconModel.setProperty(
@@ -4592,6 +4853,20 @@
         );
 
         this._renderPendingPOTypeBarChart(0);
+      },
+
+      /**
+       * Opens the multi-select Material filter popover for the Pending PO
+       * table, populated from /pendingPOMaterialOptions — same
+       * description-based (Maktx) filter as onTotalPOMaterialFilterPress.
+       */
+      onPendingPOMaterialFilterPress: function (oEvent) {
+        this._openMaterialFilterPopover(
+          oEvent,
+          "pendingPOMaterialOptions",
+          "pendingPOSelectedMaterials",
+          this._applyPendingPOFilters.bind(this),
+        );
       },
 
       /**
@@ -5434,6 +5709,106 @@
       },
 
       /**
+       * Fired from the "Advance & Other Adjustments" row in the
+       * master-detail Finance (FI) panel. Calls AdvAndOtherAdjSet for the
+       * current Company Code / Supplier over the searched From/To Date
+       * range (BudatFrom/BudatTo, both EQ â€" same two-discrete-filter
+       * pattern as Debit notes), e.g.:
+       *   AdvAndOtherAdjSet?$filter=Bukrs eq '1000' and Lifnr eq '0001000047'
+       *   and BudatFrom eq datetime'...' and BudatTo eq datetime'...'
+       * Unlike DebitAmt1Set, AdvAndOtherAdjSet's Dmbtr is NOT already
+       * signed â€" it comes back as a plain positive amount with its own
+       * Shkzg ("H" = credit, subtracted), same convention as
+       * Payments/Transactions/Closing balance elsewhere in this file.
+       */
+      onAdvAndOtherAdjPress: function () {
+        this._sActiveMdPanel = "advandotheradj"; this._persistUiState();
+        var sBukrs = this._sBukrs;
+        var sLifnr = this._oReconModel.getProperty("/mdLifnr");
+        var sFromDate = this._sKeyDate;
+
+        if (!sBukrs || !sLifnr || !sFromDate) {
+          MessageToast.show(
+            "Company Code, Supplier and From Date are required.",
+          );
+          return;
+        }
+
+        // _showMdPanel first: it swaps a still-untouched FY-start default
+        // To Date over to today, and reading _sKeyDateTo before that swap
+        // ran captured the stale FY-start value on the first non-Opening-
+        // Balance panel pressed each session (see onTransactionsPress).
+        this._showMdPanel("mdShowAdvAndOtherAdj");
+        var sToDate = this._sKeyDateTo || this._sKeyDate;
+
+        var oModel = this.getOwnerComponent().getModel();
+        var oReconModel = this._oReconModel;
+
+        // AdvAndOtherAdjSet expects Lifnr zero-padded to 10 digits, same as
+        // DebitAmt1Set/VendBalAdvSet.
+        var sLifnrPadded = String(sLifnr).padStart(10, "0");
+        var aFilters = [
+          new Filter("Bukrs", FilterOperator.EQ, sBukrs),
+          new Filter("Lifnr", FilterOperator.EQ, sLifnrPadded),
+          new Filter("BudatFrom", FilterOperator.EQ, new Date(sFromDate)),
+          new Filter("BudatTo", FilterOperator.EQ, new Date(sToDate)),
+        ];
+
+        oReconModel.setProperty("/advAndOtherAdjBusy", true);
+
+        oModel.read("/AdvAndOtherAdjSet", {
+          filters: aFilters,
+          success: function (oData) {
+            var aRawResults = oData.results || [];
+            if (aRawResults.length === 0) {
+              MessageToast.show("No advance / other adjustments found.");
+            }
+
+            var fTotal = 0;
+            var aItems = aRawResults.map(function (o) {
+              var fDmbtr = parseFloat(o.Dmbtr) || 0;
+              var fSignedAmt = o.Shkzg === "H" ? -fDmbtr : fDmbtr;
+              fTotal += fSignedAmt;
+              return {
+                Belnr: o.Belnr,
+                Blart: o.Blart,
+                NetAmt: fSignedAmt,
+                Bukrs: o.Bukrs,
+                Lifnr: o.Lifnr,
+                Name1: o.Name1,
+                Sgtxt: o.Sgtxt,
+                Rebzg: o.Rebzg,
+                Waers: o.Waers,
+                Bstat: o.Bstat,
+                Budat: o.Budat,
+                Bldat: o.Bldat,
+                Umskz: o.Umskz,
+                Shkzg: o.Shkzg,
+                Augbl: o.Augbl,
+                Augdt: o.Augdt,
+                Pmttype: o.Pmttype,
+              };
+            });
+
+            oReconModel.setProperty("/advAndOtherAdjItems", aItems);
+            oReconModel.setProperty("/advAndOtherAdjTotal", fTotal);
+            oReconModel.setProperty("/advAndOtherAdjBusy", false);
+          },
+          error: function () {
+            oReconModel.setProperty("/advAndOtherAdjItems", []);
+            oReconModel.setProperty("/advAndOtherAdjTotal", 0);
+            oReconModel.setProperty("/advAndOtherAdjBusy", false);
+            MessageToast.show("Error loading advance / other adjustments.");
+          },
+        });
+      },
+
+      /** Back navigation out of the Advance & Other Adjustments panel: returns to the Line items view. */
+      onBackFromAdvAndOtherAdj: function () {
+        this._oReconModel.setProperty("/mdShowAdvAndOtherAdj", false);
+      },
+
+      /**
        * Fired from the "Closing Balance" row in the master-detail FINANCE
        * (FI) panel. Calls ClosingBalanceSet for the current Company Code /
        * Supplier as of a single date (Budat, EQ â€" not a BudatFrom/BudatTo
@@ -5652,24 +6027,11 @@
 
             // Unique Material options for the Material filter popover
             // (onTotalPOMaterialFilterPress) â€" one entry per distinct
-            // Matnr actually present in this read, labelled with its
-            // description (Txz01) same as the table's own Material column,
-            // so the checkbox list only ever offers values that can
-            // actually narrow the table down.
-            var aMaterialOptions = [];
-            var oSeenMatnr = {};
-            aItems.forEach(function (o) {
-              if (o.Matnr && !oSeenMatnr[o.Matnr]) {
-                oSeenMatnr[o.Matnr] = true;
-                aMaterialOptions.push({
-                  key: o.Matnr,
-                  text: (o.Txz01 || o.Matnr) + " (" + o.Matnr + ")",
-                });
-              }
-            });
-            aMaterialOptions.sort(function (a, b) {
-              return a.text.localeCompare(b.text);
-            });
+            // Material Description (Maktx) actually present in this read,
+            // keyed AND matched on that description (not the raw Matnr
+            // number â€" see _applyTotalPOFilters), so the checkbox list is
+            // purely description-based like every other Material filter.
+            var aMaterialOptions = that._buildMaterialOptions(aItems);
 
             oReconModel.setProperty("/totalPOItemsAll", aItems);
             oReconModel.setProperty("/totalPOItems", aItems);
@@ -5822,6 +6184,11 @@
             oReconModel.setProperty("/pendingPOQty", fQtyTotal);
             oReconModel.setProperty("/pendingPOTypeTotals", aTypeTotals);
             oReconModel.setProperty("/mdPendingPOSelectedCategory", null);
+            oReconModel.setProperty(
+              "/pendingPOMaterialOptions",
+              that._buildMaterialOptions(aItems),
+            );
+            oReconModel.setProperty("/pendingPOSelectedMaterials", []);
             oReconModel.setProperty("/pendingPOSupplierName", sSupplierName);
             oReconModel.setProperty("/pendingPOBusy", false);
 
@@ -5838,6 +6205,8 @@
             oReconModel.setProperty("/pendingPOQty", 0);
             oReconModel.setProperty("/pendingPOTypeTotals", []);
             oReconModel.setProperty("/mdPendingPOSelectedCategory", null);
+            oReconModel.setProperty("/pendingPOMaterialOptions", []);
+            oReconModel.setProperty("/pendingPOSelectedMaterials", []);
             oReconModel.setProperty("/pendingPOBusy", false);
             that._renderPendingPOTypeBarChart(0);
             MessageToast.show("Error loading pending PO.");
@@ -6835,9 +7204,12 @@
             }
 
             var fTotal = 0;
+            var fValueTotal = 0;
             var aItems = aRawResults.map(function (o) {
               var fMenge = parseFloat(o.Menge) || 0;
+              var fDmbtr = parseFloat(o.Dmbtr) || 0;
               fTotal += fMenge;
+              fValueTotal += fDmbtr;
               return {
                 Mblnr: o.Mblnr,
                 Zeile: o.Zeile,
@@ -6854,12 +7226,19 @@
                 Menge: fMenge,
                 Meins: o.Meins,
                 Budat_mkpf: o.Budat_mkpf,
-                Dmbtr: parseFloat(o.Dmbtr) || 0,
+                Dmbtr: fDmbtr,
               };
             });
 
+            oReconModel.setProperty("/matReceiptsItemsAll", aItems);
             oReconModel.setProperty("/matReceiptsItems", aItems);
             oReconModel.setProperty("/matReceiptsTotal", fTotal);
+            oReconModel.setProperty("/matReceiptsValueTotal", fValueTotal);
+            oReconModel.setProperty(
+              "/matReceiptsMaterialOptions",
+              that._buildMaterialOptions(aItems),
+            );
+            oReconModel.setProperty("/matReceiptsSelectedMaterials", []);
             oReconModel.setProperty(
               "/matReceiptsSupplierName",
               oReconModel.getProperty("/mdSupplierName") || "",
@@ -6867,12 +7246,63 @@
             oReconModel.setProperty("/matReceiptsBusy", false);
           },
           error: function () {
+            oReconModel.setProperty("/matReceiptsItemsAll", []);
             oReconModel.setProperty("/matReceiptsItems", []);
             oReconModel.setProperty("/matReceiptsTotal", 0);
+            oReconModel.setProperty("/matReceiptsValueTotal", 0);
+            oReconModel.setProperty("/matReceiptsMaterialOptions", []);
+            oReconModel.setProperty("/matReceiptsSelectedMaterials", []);
             oReconModel.setProperty("/matReceiptsBusy", false);
             MessageToast.show("Error loading material receipts.");
           },
         });
+      },
+
+      /**
+       * Recomputes /matReceiptsItems (bound to the Material Receipts
+       * table) from /matReceiptsItemsAll using the Material checkbox
+       * filter (/matReceiptsSelectedMaterials) — same description-based
+       * (Maktx) filter as Total PO/Pending PO, just without a bar-chart
+       * category to combine with. Also recomputes /matReceiptsTotal
+       * (quantity) and /matReceiptsValueTotal from whichever rows are now
+       * showing.
+       */
+      _applyMatReceiptsFilters: function () {
+        var oReconModel = this._oReconModel;
+        var aAll = oReconModel.getProperty("/matReceiptsItemsAll") || [];
+        var aSelectedMaterials =
+          oReconModel.getProperty("/matReceiptsSelectedMaterials") || [];
+
+        var aShown =
+          aSelectedMaterials.length > 0
+            ? aAll.filter(function (o) {
+                return aSelectedMaterials.indexOf(o.Maktx) > -1;
+              })
+            : aAll;
+
+        oReconModel.setProperty("/matReceiptsItems", aShown);
+        oReconModel.setProperty(
+          "/matReceiptsTotal",
+          aShown.reduce(function (fSum, o) {
+            return fSum + (parseFloat(o.Menge) || 0);
+          }, 0),
+        );
+        oReconModel.setProperty(
+          "/matReceiptsValueTotal",
+          aShown.reduce(function (fSum, o) {
+            return fSum + (parseFloat(o.Dmbtr) || 0);
+          }, 0),
+        );
+      },
+
+      /** Opens the shared Material filter popover for the Material Receipts table. */
+      onMatReceiptsMaterialFilterPress: function (oEvent) {
+        this._openMaterialFilterPopover(
+          oEvent,
+          "matReceiptsMaterialOptions",
+          "matReceiptsSelectedMaterials",
+          this._applyMatReceiptsFilters.bind(this),
+        );
       },
 
       /** Back navigation out of the Material receipts panel: returns to the Line items view. */
@@ -6938,9 +7368,12 @@
             }
 
             var fTotal = 0;
+            var fValueTotal = 0;
             var aItems = aRawResults.map(function (o) {
               var fMenge = parseFloat(o.Menge) || 0;
+              var fDmbtr = parseFloat(o.Dmbtr) || 0;
               fTotal += fMenge;
+              fValueTotal += fDmbtr;
               return {
                 Mblnr: o.Mblnr,
                 Zeile: o.Zeile,
@@ -6957,12 +7390,20 @@
                 Menge: fMenge,
                 Meins: o.Meins,
                 BudatMkpf: o.BudatMkpf,
+                Dmbtr: fDmbtr,
               };
             });
 
+            oReconModel.setProperty("/vendorReturnsItemsAll", aItems);
             oReconModel.setProperty("/vendorReturnsItems", aItems);
             oReconModel.setProperty("/vendorReturnsTotal", fTotal);
+            oReconModel.setProperty("/vendorReturnsValueTotal", fValueTotal);
             oReconModel.setProperty("/vendorReturnsCount", aItems.length);
+            oReconModel.setProperty(
+              "/vendorReturnsMaterialOptions",
+              that._buildMaterialOptions(aItems),
+            );
+            oReconModel.setProperty("/vendorReturnsSelectedMaterials", []);
             oReconModel.setProperty(
               "/vendorReturnsSupplierName",
               oReconModel.getProperty("/mdSupplierName") || "",
@@ -6970,13 +7411,64 @@
             oReconModel.setProperty("/vendorReturnsBusy", false);
           },
           error: function () {
+            oReconModel.setProperty("/vendorReturnsItemsAll", []);
             oReconModel.setProperty("/vendorReturnsItems", []);
             oReconModel.setProperty("/vendorReturnsTotal", 0);
+            oReconModel.setProperty("/vendorReturnsValueTotal", 0);
             oReconModel.setProperty("/vendorReturnsCount", 0);
+            oReconModel.setProperty("/vendorReturnsMaterialOptions", []);
+            oReconModel.setProperty("/vendorReturnsSelectedMaterials", []);
             oReconModel.setProperty("/vendorReturnsBusy", false);
             MessageToast.show("Error loading vendor returns.");
           },
         });
+      },
+
+      /**
+       * Recomputes /vendorReturnsItems (bound to the Vendor Returns table)
+       * from /vendorReturnsItemsAll using the Material checkbox filter
+       * (/vendorReturnsSelectedMaterials) — same description-based
+       * (Maktx) filter as Material Receipts. Also recomputes
+       * /vendorReturnsTotal (quantity) and /vendorReturnsValueTotal from
+       * whichever rows are now showing.
+       */
+      _applyVendorReturnsFilters: function () {
+        var oReconModel = this._oReconModel;
+        var aAll = oReconModel.getProperty("/vendorReturnsItemsAll") || [];
+        var aSelectedMaterials =
+          oReconModel.getProperty("/vendorReturnsSelectedMaterials") || [];
+
+        var aShown =
+          aSelectedMaterials.length > 0
+            ? aAll.filter(function (o) {
+                return aSelectedMaterials.indexOf(o.Maktx) > -1;
+              })
+            : aAll;
+
+        oReconModel.setProperty("/vendorReturnsItems", aShown);
+        oReconModel.setProperty("/vendorReturnsCount", aShown.length);
+        oReconModel.setProperty(
+          "/vendorReturnsTotal",
+          aShown.reduce(function (fSum, o) {
+            return fSum + (parseFloat(o.Menge) || 0);
+          }, 0),
+        );
+        oReconModel.setProperty(
+          "/vendorReturnsValueTotal",
+          aShown.reduce(function (fSum, o) {
+            return fSum + (parseFloat(o.Dmbtr) || 0);
+          }, 0),
+        );
+      },
+
+      /** Opens the shared Material filter popover for the Vendor Returns table. */
+      onVendorReturnsMaterialFilterPress: function (oEvent) {
+        this._openMaterialFilterPopover(
+          oEvent,
+          "vendorReturnsMaterialOptions",
+          "vendorReturnsSelectedMaterials",
+          this._applyVendorReturnsFilters.bind(this),
+        );
       },
 
       /** Back navigation out of the Vendor returns panel: returns to the Line items view. */
@@ -7244,6 +7736,14 @@
         // onPaymentsRowPress before the read, matching every other panel's
         // handler pattern — this function only fills in the fetched data.
         oReconModel.setProperty("/paymentsBusy", false);
+
+        // Draw straight away — don't wait for the chart tile's own
+        // afterRendering, which only fires the first time this panel's
+        // core:HTML is added to the DOM (i.e. before this data actually
+        // arrived, leaving the chart tile blank until the panel was
+        // reopened), not on every subsequent "Payments" press — same
+        // reasoning as _renderTotalPOTypeBarChart/_renderPendingPOTypeBarChart.
+        that._renderPaymentsTypeBarChart(0);
       },
 
       /**
@@ -7797,22 +8297,26 @@
         }
       },
 
+      /** Same in-flight-promise guard as onShareOfBusinessMaterialFilterPress — see its comment. */
       onSobMaterialFilterPress: function () {
-        if (!this._oSobMatF4Dialog) {
-          Fragment.load({
+        var that = this;
+
+        if (!this._oSobMatF4DialogPromise) {
+          this._oSobMatF4DialogPromise = Fragment.load({
             id: this.getView().getId(),
             name: "supplieropenitems.view.fragment.MaterialF4Dialog",
             controller: this,
           }).then(function (oDialog) {
-            this._oSobMatF4Dialog = oDialog;
-            this.getView().addDependent(this._oSobMatF4Dialog);
-            this._loadSobMaterialF4DataFromBackend();
-            this._oSobMatF4Dialog.open();
-          }.bind(this));
-        } else {
-          this._loadSobMaterialF4DataFromBackend();
-          this._oSobMatF4Dialog.open();
+            that._oSobMatF4Dialog = oDialog;
+            that.getView().addDependent(oDialog);
+            return oDialog;
+          });
         }
+
+        this._oSobMatF4DialogPromise.then(function (oDialog) {
+          that._loadSobMaterialF4DataFromBackend();
+          oDialog.open();
+        });
       },
 
       _loadSobMaterialF4DataFromBackend: function () {
@@ -7936,22 +8440,59 @@
         this.onSobMaterialF4CancelDialog();
       },
 
+      /**
+       * "Clear" in the Select Material dialog (both onSobMaterialFilterPress
+       * and onShareOfBusinessMaterialFilterPress open this same dialog) —
+       * unchecks every row, resets /sobSelectedMaterials back to empty, and
+       * reloads the Total Qty breakdown unfiltered (same
+       * _loadTotalShareBusinessBreakdown call the panel makes on its own
+       * when first opened), undoing whatever material filter was applied
+       * via a previous OK, then closes the dialog.
+       */
+      onMaterialF4Clear: function () {
+        var oTable = this.getView().byId("sobMaterialF4Table");
+        if (oTable) {
+          oTable.clearSelection();
+        }
+
+        var oReconModel = this.getView().getModel("recon");
+        oReconModel.setProperty("/sobSelectedMaterials", []);
+
+        this._loadTotalShareBusinessBreakdown();
+
+        MessageToast.show("Material filter cleared.");
+        this.onSobMaterialF4CancelDialog();
+      },
+
+      /**
+       * Opens the shared Select Material dialog (MaterialF4Dialog fragment
+       * — fixed control ids, so only ever loaded once). _oShareOfBusinessMatF4DialogPromise
+       * is set synchronously (not just _oShareOfBusinessMatF4Dialog inside
+       * the .then, after the fact) so a second click landing before the
+       * first Fragment.load resolves reuses the same in-flight promise
+       * instead of starting a second load and duplicate-registering the
+       * fragment's fixed ids (sobMaterialF4Dialog/sobMaterialSearchField/
+       * sobMaterialF4Table) — the bug this fixed.
+       */
       onShareOfBusinessMaterialFilterPress: function () {
-        if (!this._oShareOfBusinessMatF4Dialog) {
-          Fragment.load({
+        var that = this;
+
+        if (!this._oShareOfBusinessMatF4DialogPromise) {
+          this._oShareOfBusinessMatF4DialogPromise = Fragment.load({
             id: this.getView().getId(),
             name: "supplieropenitems.view.fragment.MaterialF4Dialog",
             controller: this,
           }).then(function (oDialog) {
-            this._oShareOfBusinessMatF4Dialog = oDialog;
-            this.getView().addDependent(this._oShareOfBusinessMatF4Dialog);
-            this._loadShareOfBusinessMaterialF4Data();
-            this._oShareOfBusinessMatF4Dialog.open();
-          }.bind(this));
-        } else {
-          this._loadShareOfBusinessMaterialF4Data();
-          this._oShareOfBusinessMatF4Dialog.open();
+            that._oShareOfBusinessMatF4Dialog = oDialog;
+            that.getView().addDependent(oDialog);
+            return oDialog;
+          });
         }
+
+        this._oShareOfBusinessMatF4DialogPromise.then(function (oDialog) {
+          that._loadShareOfBusinessMaterialF4Data();
+          oDialog.open();
+        });
       },
 
       _loadShareOfBusinessMaterialF4Data: function () {

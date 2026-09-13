@@ -332,6 +332,7 @@
                                     noData="No vendor items found."
                                     class="mdLineItemsTable mdGridTable"
                                     cellClick=".onVendorItemPress"
+                                    sort=".onVendorsTableSort"
                                 >
                                     <table:columns>
                                         <!-- ═══ Percentage widths (summing to 100%) instead of fixed

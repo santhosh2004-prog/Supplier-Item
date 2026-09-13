@@ -1,0 +1,210 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:table="sap.ui.table"
+>
+    <!-- ═══ Advance & other adjustments panel : shown in place of Line items
+         after the "Advance & Other Adjustments" module row is pressed.
+         Calls AdvAndOtherAdjSet for the current Company Code/Supplier over
+         the searched From/To Date range (BudatFrom/BudatTo, both EQ — same
+         two-discrete-filter pattern as Debit notes), e.g.:
+           AdvAndOtherAdjSet?$filter=Bukrs eq '1000' and Lifnr eq '0001000047'
+           and BudatFrom eq datetime'...' and BudatTo eq datetime'...'
+         Dmbtr is signed by Shkzg ("H" = credit, subtracted), same convention
+         as every other FI panel here (Payments/Transactions/Closing
+         balance), unlike Debit notes' already-positive DebitAmt1Set. Same
+         stat-tile + table layout as Debit notes — no bar chart. ═══ -->
+    <VBox visible="{recon>/mdShowAdvAndOtherAdj}" class="mdPanelAnimate">
+        <FlexBox
+            class="mdStatTilesRow"
+            wrap="Wrap"
+        >
+            <HBox
+                justifyContent="Start"
+                class="mdSidebarReopenRow"
+                visible="{= !${recon>/mdLeftPanelOpen} }"
+            >
+                <Button
+                    id="mdLeftPanelMenuButtonAdvAndOtherAdj"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Transparent"
+                    tooltip="Open"
+                    class="mdSidebarGroupTitle"
+                    press=".onMdLeftPanelMenuPress"
+                />
+            </HBox>
+            <VBox
+                visible="{= ${recon>/advAndOtherAdjBusy} || ${recon>/advAndOtherAdjItems}.length > 0 }"
+                class="mdStatTile mdStatTileBlue"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Total Amount :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{ path: 'recon>/advAndOtherAdjTotal', formatter: '.formatBalanceValue' }"
+                            class="panelSubValue mdNoMargin debitAmountValue"
+                        />
+                    </HBox>
+                </HBox>
+            </VBox>
+            <VBox
+                visible="{= ${recon>/advAndOtherAdjBusy} || ${recon>/advAndOtherAdjItems}.length > 0 }"
+                class="mdStatTile mdStatTileGreen"
+            >
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                >
+                    <HBox alignItems="Center" class="mdStatTileContent">
+                        <Text
+                            text="Items :"
+                            class="panelSubTitle mdNoMargin textLeft"
+                        />
+                        <Text
+                            text="{= ${recon>/advAndOtherAdjItems}.length }"
+                            class="panelSubValue mdNoMargin debitItemsValue"
+                        />
+                    </HBox>
+                </HBox>
+            </VBox>
+            <HBox class="mdExportBtns mdLineItemsToolBtns">
+                <Button
+                    icon="sap-icon://action-settings"
+                    text="Column Settings"
+                    type="Transparent"
+                    tooltip="Column Settings"
+                    press=".onLineItemsColumnSettingsPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="advAndOtherAdjTable" />
+                    </customData>
+                </Button>
+                <Button
+                    icon="sap-icon://table-view"
+                    text="Select Layout"
+                    type="Transparent"
+                    tooltip="Select Layout"
+                    press=".onLineItemsLayoutDialogPress"
+                >
+                    <customData>
+                        <core:CustomData key="tableId" value="advAndOtherAdjTable" />
+                    </customData>
+                </Button>
+            </HBox>
+        </FlexBox>
+
+        <IllustratedMessage
+            visible="{= !${recon>/advAndOtherAdjBusy} &amp;&amp; ${recon>/advAndOtherAdjItems}.length === 0 }"
+            illustrationType="sapIllus-NoData"
+            illustrationSize="Spot"
+            title="No Advance &amp; Other Adjustments Data"
+            description="{= 'No advance / other adjustments found for ' + (${recon>/mdSupplierName} || ${recon>/mdLifnr}) + '.' }"
+            class="mdNoDataIllustration"
+        />
+
+        <table:Table
+            id="advAndOtherAdjTable"
+            width="100%"
+            rowHeight="24"
+            columnHeaderHeight="26"
+            rows="{recon>/advAndOtherAdjItems}"
+            busy="{recon>/advAndOtherAdjBusy}"
+            busyIndicatorDelay="0"
+            visible="{= ${recon>/advAndOtherAdjBusy} || ${recon>/advAndOtherAdjItems}.length > 0 }"
+            selectionMode="None"
+            enableColumnReordering="false"
+            visibleRowCountMode="Auto"
+            minAutoRowCount="13"
+            noData="No advance / other adjustments found."
+            class="mdLineItemsTable mdGridTable"
+        >
+            <table:columns>
+                <table:Column width="18%" sortProperty="Belnr" filterProperty="Belnr">
+                    <table:label>
+                        <Label text="Document" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Belnr}" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol1" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="13%" sortProperty="Budat" filterProperty="Budat">
+                    <table:label>
+                        <Label text="Date" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>Budat', formatter: '.formatOpenItemDate' }" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol2" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="11%" sortProperty="Blart" filterProperty="Blart">
+                    <table:label>
+                        <Label text="Type" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Blart}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol3" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="15%"
+                    hAlign="End"
+                    sortProperty="NetAmt"
+                    filterProperty="NetAmt"
+                >
+                    <table:label>
+                        <Label text="Amount" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{ path: 'recon>NetAmt', formatter: '.formatAmount' }" textAlign="End" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol4" />
+                    </table:customData>
+                </table:Column>
+                <table:Column
+                    width="13%"
+                    hAlign="End"
+                    sortProperty="Augbl"
+                    filterProperty="Augbl"
+                >
+                    <table:label>
+                        <Label text="Status" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <ObjectStatus
+                            text="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatus' }"
+                            state="{ path: 'recon>Augbl', formatter: '.formatOpenItemStatusState' }"
+                        />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol5" />
+                    </table:customData>
+                </table:Column>
+                <table:Column width="30%" sortProperty="Sgtxt" filterProperty="Sgtxt">
+                    <table:label>
+                        <Label text="Text" design="Bold" />
+                    </table:label>
+                    <table:template>
+                        <Text text="{recon>Sgtxt}" wrapping="false" />
+                    </table:template>
+                    <table:customData>
+                        <core:CustomData key="colId" value="oiCol6" />
+                    </table:customData>
+                </table:Column>
+            </table:columns>
+        </table:Table>
+    </VBox>
+</core:FragmentDefinition>

@@ -7,7 +7,6 @@
         id="sobMaterialF4Dialog"
         title="Select Material"
         type="Standard"
-        state="Standard"
         contentHeight="600px"
         contentWidth="90%"
         horizontalScrolling="false"
@@ -71,19 +70,27 @@
             </VBox>
         </content>
 
-        <beginButton>
+        <!-- ═══ sap.m.Dialog has no "customFooter" aggregation — footer
+             buttons go through "buttons" (0..n) instead, which is why
+             beginButton/endButton were dropped here in favor of listing
+             all three (Clear/OK/Cancel) through "buttons": setting
+             "buttons" makes Dialog ignore beginButton/endButton anyway, so
+             mixing the two aggregations wouldn't have rendered Clear. ═══ -->
+        <buttons>
             <Button
                 text="OK"
                 type="Emphasized"
                 press=".onSobMaterialF4Confirm"
             />
-        </beginButton>
-
-        <endButton>
+            <Button
+                text="Clear"
+                type="Transparent"
+                press=".onMaterialF4Clear"
+            />
             <Button
                 text="Cancel"
                 press=".onMaterialF4Cancel"
             />
-        </endButton>
+        </buttons>
     </Dialog>
 </core:FragmentDefinition>

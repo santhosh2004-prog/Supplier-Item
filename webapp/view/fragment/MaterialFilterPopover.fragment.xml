@@ -1,0 +1,54 @@
+<!--
+    Shared multi-select checkbox filter popover for the Materials (MM)
+    panels that don't have their own dedicated popover (Total PO has its
+    own — see TotalPOMaterialFilterPopover.fragment.xml): Pending PO,
+    Material Receipts, Vendor Returns. One shared popover instance instead
+    of one fragment per panel — opened by each panel's own "Filter:
+    Material" button (see onPendingPOMaterialFilterPress/
+    onMatReceiptsMaterialFilterPress/onVendorReturnsMaterialFilterPress in
+    Main.controller.js, all going through the common
+    _openMaterialFilterPopover helper). The checkbox list is populated
+    dynamically from whichever panel's own *MaterialOptions the button that
+    opened it belongs to — one entry per distinct Material Description
+    (Maktx) actually present in that panel's current read, not a fixed
+    list. Selecting/unselecting applies the filter immediately
+    (onMMMaterialFilterChange) instead of needing a separate "Go"/"Apply"
+    button; onMMMaterialFilterChange/onMMMaterialFilterClear both re-run
+    whichever panel's own _applyXFilters function was remembered when the
+    popover was opened.
+-->
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Popover
+        id="mmMaterialFilterPopover"
+        title="Filter: Material"
+        placement="Bottom"
+        contentWidth="18rem"
+    >
+        <List
+            id="mmMaterialFilterList"
+            mode="MultiSelect"
+            includeItemInSelection="true"
+            items="{ path: 'mmMaterialFilterModel>/values' }"
+            selectionChange=".onMMMaterialFilterChange"
+            noDataText="No materials to filter by."
+        >
+            <StandardListItem
+                title="{mmMaterialFilterModel>text}"
+                selected="{mmMaterialFilterModel>selected}"
+            />
+        </List>
+        <footer>
+            <Toolbar>
+                <ToolbarSpacer />
+                <Button
+                    text="Clear"
+                    type="Transparent"
+                    press=".onMMMaterialFilterClear"
+                />
+            </Toolbar>
+        </footer>
+    </Popover>
+</core:FragmentDefinition>

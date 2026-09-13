@@ -19,7 +19,7 @@
         <!-- ═══ Opening Balance / Open Items summary tiles ═══ -->
 
         <FlexBox
-            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} &amp;&amp; !${recon>/mdShowClosingBalance} }"
+            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowAdvAndOtherAdj} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} &amp;&amp; !${recon>/mdShowClosingBalance} }"
             class="mdStatTilesRow mdPanelAnimate"
             wrap="Wrap"
         >
@@ -151,7 +151,7 @@
         <!-- ═══ Chart + Line Items ═══ -->
 
         <VBox
-            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} &amp;&amp; !${recon>/mdShowClosingBalance} }"
+            visible="{= !${recon>/mdShowGenericModule} &amp;&amp; !${recon>/mdShowTransactions} &amp;&amp; !${recon>/mdShowPayments} &amp;&amp; !${recon>/mdShowAdvance} &amp;&amp; !${recon>/mdShowDebitNotes} &amp;&amp; !${recon>/mdShowAdvAndOtherAdj} &amp;&amp; !${recon>/mdShowPendingInvoices} &amp;&amp; !${recon>/mdShowTotalPO} &amp;&amp; !${recon>/mdShowPendingPO} &amp;&amp; !${recon>/mdShowLotsAccepted} &amp;&amp; !${recon>/mdShowLotsReceived} &amp;&amp; !${recon>/mdShowRejectedQty} &amp;&amp; !${recon>/mdShowAcceptedQty} &amp;&amp; !${recon>/mdShowAudQty} &amp;&amp; !${recon>/mdShowMatReceipts} &amp;&amp; !${recon>/mdShowVendorReturns} &amp;&amp; !${recon>/mdShowShareOfBusiness} &amp;&amp; !${recon>/mdShowClosingBalance} }"
             class="mdChartAndLineItemsStack"
         >
 
